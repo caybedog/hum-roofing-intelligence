@@ -1,0 +1,10 @@
+{
+  "name": "hum-roofing-intelligence",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node tests.mjs && node ui-smoke-tests.mjs"
+  }
+}
