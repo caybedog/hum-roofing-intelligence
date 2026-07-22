@@ -1,68 +1,108 @@
-# HUM Roofing Intelligence — Round 2
+# vinext-starter
 
-A dependency-free roofing project intelligence prototype with a production-ready data and AI foundation.
+A clean full-stack starter running on
+[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
+Drizzle support.
 
-## Fastest Mac preview
+## Prerequisites
 
-1. Double-click `start_mac.command`.
-2. If macOS blocks it, right-click it, choose **Open**, then **Open** again.
-3. The script opens HUM on the Mac and prints the Wi-Fi link for a phone.
-4. Keep the Terminal window open while testing.
+- Node.js `>=22.13.0`
+- Linux with `flock`, `curl`, and GNU `timeout`
 
-## Manual start
+## Sites Lifecycle
 
-```bash
-npm start
+The Sites lifecycle CLI runs the locked dependency install before returning this checkout. Edit the source under `app/`, then checkpoint when a coherent milestone is ready to inspect or share. The remote Sites builder runs `npm run build` against the pushed commit. Do not repeat install or build as a normal pre-checkpoint step.
+
+This starter does not use `wrangler.jsonc`.
+
+`install:ci` is intentionally a single, non-retrying `npm ci`. It refuses a concurrent install for the same project, consumes a matching image-seeded npm cache with `--prefer-offline` while retaining registry fallback for a missing cache object, otherwise downloads and verifies the complete vinext tarball recorded in `package-lock.json`, limits npm to one socket, and terminates a stalled install. `build` applies a short timeout and then validates the Sites artifact. These helpers target Linux and use GNU `timeout`; they are not native macOS scripts.
+
+Scripts that need writable project-scoped home, npm, XDG, and temporary paths use `scripts/sites-env.sh`. The `dev` and `start` scripts honor the caller's runtime environment and keep Wrangler logs inside the checkout. The generated `.sites-runtime/` directory is disposable and ignored by Git.
+
+## Included Shape
+
+- edit site code under `app/`
+- `app/chatgpt-auth.ts` provides optional dispatch-owned ChatGPT sign-in helpers
+- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
+- `vite.config.ts` simulates declared bindings for local development
+- `db/index.ts` reads the D1 binding from the Cloudflare Worker environment
+- `db/schema.ts` starts intentionally empty
+- `examples/d1/` contains an optional D1 example surface
+- `drizzle.config.ts` supports local migration generation when needed
+
+## Workspace Auth Headers
+
+OpenAI workspace sites can read the current user's email from
+`oai-authenticated-user-email`.
+
+SIWC-authenticated workspace sites may also receive
+`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
+`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
+`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
+
+Treat the full name as optional and fall back to email when it is absent:
+
+```tsx
+import { headers } from "next/headers";
+
+export default async function Home() {
+  const requestHeaders = await headers();
+  const email = requestHeaders.get("oai-authenticated-user-email");
+  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
+  const fullName =
+    encodedFullName &&
+    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
+      "percent-encoded-utf-8"
+      ? decodeURIComponent(encodedFullName)
+      : null;
+
+  const displayName = fullName ?? email;
+  // ...
+}
 ```
 
-Open `http://localhost:4173`. The server listens on `0.0.0.0`, so another device on the same Wi-Fi can open `http://YOUR-MAC-IP:4173`.
+## Optional Dispatch-Owned ChatGPT Sign-In
 
-## Optional live AI intake
+Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
+optional or required ChatGPT sign-in:
 
-The app always has a deterministic offline language parser. To enable live structured AI extraction, set the API key only on the server:
+- Use `getChatGPTUser()` for optional signed-in UI.
+- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
+  anonymous visitors through Sign in with ChatGPT.
+- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
+  browser links or actions.
+- Pass a same-origin relative `returnTo` path for the destination after sign-in
+  or sign-out. The helper validates and safely encodes it.
+- Mark protected pages with `export const dynamic = "force-dynamic"` because
+  they depend on per-request identity headers.
 
-```bash
-export OPENAI_API_KEY="your_key"
-export OPENAI_MODEL="gpt-5" # optional
-npm start
-```
+Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
+OAuth cookies, and identity header injection. Do not implement app routes for
+those reserved paths. Routes that do not import and call the helper remain
+anonymous-compatible.
 
-Never place the API key in `app.js`, `index.html`, or browser localStorage. The local Node server calls `/v1/responses` with a strict JSON schema and `store: false`.
+SIWC establishes identity only; it does not prove workspace membership. Use the
+Sites hosting platform's access policy controls for workspace-wide restrictions,
+or enforce explicit server-side membership or allowlist checks.
 
-## Round-two features
+Use SIWC for account pages, user-specific dashboards, saved records, and write
+actions tied to the current ChatGPT user. Leave public content anonymous.
 
-- Multiple-project library and status pipeline
-- AI-assisted free-text roofing intake
-- Safe offline parser when live AI is unavailable
-- Deterministic pricing remains separate from AI output
-- Traceable material, labor, disposal, and allowance source ledger
-- Verification, source confidence, location, date, and unit metadata
-- Weighted proposals from verified cost evidence
-- Explicit approval before any assumption changes
-- Contractor fit scoring with reasons and concerns
-- Homeowner report now shows a demo matching preview
-- Supabase PostgreSQL schema, storage bucket, audit records, and RLS policies
-- Supabase Edge Function scaffold for secure AI intake
-- Local-first storage so the runnable prototype works immediately
+## Diagnostic Commands
 
-## Test
+- `npm run install:ci`: perform the one bounded lockfile install
+- `npm run dev`: start the Vite/Vinext development server
+- `npm run build`: build and validate the deployable Sites artifact
+- `npm run start`: start the built Vinext application
+- `npm test`: build, validate, and verify the rendered development-preview metadata
+- `npm run validate:artifact`: recheck an existing artifact's manifest and ESM `default.fetch` export
+- `npm run db:generate`: generate Drizzle migrations after schema changes
 
-```bash
-npm test
-```
+Use build and validation commands for targeted diagnosis after a remote failure, not as part of the normal checkpoint path.
 
-The test suite covers replacement and repair scenarios, margin integrity, confidence behavior, text extraction, weighted knowledge updates, and contractor ranking.
+The timeout defaults can be overridden for a controlled canary with `SITES_INSTALL_TIMEOUT`, `SITES_INSTALL_KILL_AFTER`, `SITES_BUILD_TIMEOUT`, and `SITES_BUILD_KILL_AFTER`. A timeout fails the command; the helpers never retry an unchanged install or build.
 
-## Production migration files
+## Learn More
 
-- `supabase/schema.sql`
-- `supabase/functions/ai-intake/index.ts`
-- `.env.example`
-
-## Current boundaries
-
-- Cost records included in the demo are unverified examples.
-- Contractor profiles shown in matching are fictional demonstrations.
-- The standalone build does not create real accounts or synchronize data until Supabase is configured.
-- AI interpretation does not diagnose a roof or determine the selling price.
-- Final measurements, concealed conditions, code requirements, and binding quotes require qualified professionals.
+- [vinext Documentation](https://github.com/cloudflare/vinext)
+- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
