@@ -68,3 +68,274 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media(max-width:1180px){.launch-project-bar{grid-template-columns:1fr 1fr}.launch-project-bar .nonbinding-pill{justify-self:start;margin:14px 18px}.version-control{grid-template-columns:1fr}.party-approval-grid{grid-template-columns:1fr}.launch-document-grid{grid-template-columns:1fr 1fr}.payment-gate-grid{grid-template-columns:1fr 1fr}.kickoff-facts{grid-template-columns:1fr 1fr}}
 @media(max-width:900px){.launch-heading{align-items:flex-start}.launch-tabs{grid-template-columns:1fr 1fr}.launch-intro{grid-template-columns:1fr;gap:14px}.agreement-diff,.receipt-register{overflow-x:auto}.diff-row{min-width:900px}.signature-record,.selection-panel,.logistics-card,.preconstruction-panel,.kickoff-overview{grid-template-columns:1fr;gap:22px}.logistics-confirmation{grid-column:1}.log-layout{grid-template-columns:1fr}.receipt-row{min-width:720px}.launch-boundary{grid-template-columns:1fr}.launch-boundary>div{border-left:0;border-top:1px solid var(--line)}.launch-boundary>div:first-child{border-top:0}}
 @media(max-width:640px){.button-row{width:100%;display:grid}.launch-heading{display:block}.launch-meter{width:100%;min-height:auto;margin-top:22px}.launch-project-bar{grid-template-columns:1fr}.launch-project-bar>div{border-left:0;border-top:1px solid var(--line)}.launch-project-bar>div:first-child{border-top:0}.launch-tabs{grid-template-columns:1fr}.launch-tabs button{padding:11px}.version-control,.signature-record,.selection-panel,.logistics-card,.preconstruction-panel,.activate-launch,.kickoff-ready-banner{padding:22px}.version-stats{grid-template-columns:1fr}.version-stats>span{border-left:0;border-top:1px solid #ffffff25}.version-stats>span:first-child{border-top:0}.version-actions button{width:100%}.version-boundary{grid-template-columns:1fr;gap:7px}.launch-warning{align-items:stretch;flex-direction:column}.approval-card{padding:19px}.approval-card-head{display:grid}.signature-parties>div{display:grid}.signature-parties button{width:100%}.selection-fields,.launch-document-grid,.logistics-grid,.payment-gate-grid,.preconstruction-list,.kickoff-facts{grid-template-columns:1fr}.logistics-grid>span{border-left:0;border-top:1px solid #ffffff25}.logistics-grid>span:first-child{border-top:0}.log-entries>div{grid-template-columns:1fr;gap:5px}.payment-gate-grid article{min-height:0}.launch-requirements{padding:21px}.activate-launch,.kickoff-ready-banner{grid-template-columns:1fr;align-items:stretch}.activate-launch button,.kickoff-ready-banner button{justify-content:space-between}.launch-boundary>div{grid-template-columns:1fr;gap:7px}}
+
+/* Round 8 · active construction */
+.sidebar{overflow-y:auto}
+.construction-workspace{position:relative}
+.construction-notice{position:fixed;right:24px;top:91px;z-index:60;background:var(--ink);color:white;padding:13px 18px;border-radius:9px;box-shadow:0 14px 35px #0003;font-size:12px;max-width:390px}
+.construction-heading{align-items:flex-end}
+.construction-role-card{width:290px;flex:0 0 auto;background:var(--forest);color:white;border-radius:14px;padding:22px;display:grid;gap:10px}
+.construction-role-card>strong{font:400 24px Georgia,serif}
+.construction-role-card>div{display:grid;grid-template-columns:1fr 1fr;border:1px solid #ffffff30;border-radius:8px;overflow:hidden}
+.construction-role-card button{border:0;background:transparent;color:#c6d2cd;padding:10px;font-size:9px}
+.construction-role-card button.active{background:#f5eadc;color:var(--forest);font-weight:750}
+.construction-role-card small{font-size:8px;line-height:1.5;color:#adbbb6}
+.construction-project-bar{display:grid;grid-template-columns:1.2fr 1fr .8fr .8fr auto;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:22px}
+.construction-project-bar>div{padding:17px 19px;border-left:1px solid var(--line);display:grid;gap:4px}
+.construction-project-bar>div:first-child{border-left:0}
+.construction-project-bar>div span{font-size:7px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.construction-project-bar>div strong{font-size:9px}
+.sync-pill{align-self:center;margin:0 15px;border:1px solid var(--line);border-radius:20px;padding:7px 10px;font-size:7px;white-space:nowrap;color:var(--muted)}
+.sync-pill.saved{background:#e6f0e8;color:#39714d;border-color:#c5d6ca}
+.sync-pill.session{background:#f7edda;color:#8c6138;border-color:#d9c7a8}
+.construction-tabs{display:grid;grid-template-columns:repeat(6,1fr);background:var(--line);border:1px solid var(--line);gap:1px;border-radius:12px;overflow:hidden;margin-bottom:28px}
+.construction-tabs button{border:0;background:var(--card);padding:14px 12px;text-align:left;font-size:8px;display:flex;align-items:center;gap:8px}
+.construction-tabs button span{width:23px;height:23px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;font-size:7px;flex:0 0 auto}
+.construction-tabs button.active{background:#ede6d8;color:var(--forest);font-weight:750}
+.construction-tabs button.active span{background:var(--forest);border-color:var(--forest);color:white}
+.construction-health{display:grid;grid-template-columns:.42fr 1.58fr;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.construction-score{background:var(--forest);color:white;padding:31px;display:grid;align-content:center}
+.construction-score>strong{font:400 64px Georgia,serif;margin:16px 0 3px}
+.construction-score>strong small,.completion-progress>strong small{font-size:21px;color:#aebfb8}
+.construction-score p{font-size:8px;color:#c4d1cc;line-height:1.6;margin:0}
+.health-card-grid{display:grid;grid-template-columns:repeat(4,1fr);background:var(--line);gap:1px}
+.health-card-grid article{background:var(--card);padding:24px 19px;display:grid;align-content:center;min-width:0}
+.health-card-grid article>span{font-size:8px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.health-card-grid article>strong{font:400 25px Georgia,serif;margin:25px 0 7px}
+.health-card-grid article>p{font-size:7px;color:var(--muted);line-height:1.5;margin:0}
+.health-card-grid article.review{box-shadow:inset 0 3px #c58b57}
+.health-card-grid article.critical{box-shadow:inset 0 3px #9e4e42}
+.construction-today{background:var(--forest);color:white;border-radius:14px;padding:31px;display:grid;grid-template-columns:.7fr 1.3fr;gap:42px}
+.construction-today h2{font:400 31px Georgia,serif;margin:10px 0}
+.construction-today p{font-size:8px;line-height:1.65;color:#c4d1cc;margin:0}
+.today-actions{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #ffffff25;border-radius:10px;overflow:hidden}
+.today-actions button{border:0;border-left:1px solid #ffffff25;background:#ffffff06;color:white;text-align:left;padding:18px;display:grid;align-content:start;gap:7px}
+.today-actions button:first-child{border-left:0}
+.today-actions button>span{font:400 18px Georgia,serif;color:#e4c39f}
+.today-actions button>strong{font-size:9px}
+.today-actions button>small{font-size:7px;color:#b6c5bf;line-height:1.4}
+.construction-grid{display:grid;grid-template-columns:1.3fr .7fr;gap:14px}
+.activity-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:25px}
+.activity-list>div{display:grid;grid-template-columns:100px 14px 1fr;gap:10px;position:relative;padding:11px 0}
+.activity-list>div:before{content:"";position:absolute;left:106px;top:0;bottom:0;width:1px;background:var(--line)}
+.activity-list>div>span{font-size:7px;color:var(--muted)}
+.activity-list>div>i{width:9px;height:9px;border-radius:50%;background:var(--forest);z-index:1;margin-top:2px}
+.activity-list>div>div{display:grid;gap:3px}
+.activity-list small{font-size:7px;color:var(--copper)}
+.activity-list strong{font-size:9px}
+.activity-list p{font-size:8px;line-height:1.45;color:var(--muted);margin:0}
+.construction-risks{background:#ede6d8;border:1px solid var(--line);border-radius:14px;padding:25px;display:flex;flex-direction:column}
+.construction-risks h2{font:400 27px Georgia,serif;margin:11px 0 18px}
+.construction-risks>div{display:grid;gap:3px;border-top:1px solid var(--line);padding:13px 0}
+.construction-risks b{font-size:7px;text-transform:uppercase;color:var(--copper)}
+.construction-risks strong{font-size:9px}
+.construction-risks span{font-size:7px;color:var(--muted)}
+.construction-risks button{margin-top:auto;border:0;border-top:1px solid var(--line);background:none;padding:15px 0 0;display:flex;justify-content:space-between;font-size:8px}
+.construction-boundary{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:22px;display:grid;grid-template-columns:1fr 1fr}
+.construction-boundary>div{padding:17px 24px;display:grid;grid-template-columns:150px 1fr;gap:15px;border-left:1px solid var(--line)}
+.construction-boundary>div:first-child{border-left:0}
+.construction-boundary strong{font-size:9px}
+.construction-boundary span{font-size:8px;color:var(--muted);line-height:1.6}
+.construction-intro{display:grid;grid-template-columns:1fr .75fr;gap:48px;align-items:end;padding:22px 0 28px;border-bottom:1px solid var(--ink)}
+.construction-intro h2{font:400 34px Georgia,serif;margin:8px 0 0}
+.construction-intro p{font-size:10px;color:var(--muted);line-height:1.7;margin:0}
+.milestone-board{display:grid;gap:10px;margin-top:24px}
+.milestone-board article{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:20px;display:grid;grid-template-columns:45px 1fr 210px;gap:20px;align-items:center}
+.milestone-board article.active{box-shadow:inset 3px 0 var(--copper)}
+.milestone-board article.complete{box-shadow:inset 3px 0 #39714d}
+.milestone-number{font:400 22px Georgia,serif;color:var(--copper)}
+.milestone-copy{display:grid;gap:4px}
+.milestone-copy>span,.milestone-copy>small{font-size:7px;color:var(--muted)}
+.milestone-copy h3{font:400 20px Georgia,serif;margin:2px 0}
+.milestone-copy p{font-size:8px;line-height:1.5;color:var(--muted);margin:0}
+.milestone-progress{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center}
+.milestone-progress>strong{font:400 23px Georgia,serif}
+.milestone-progress>div{height:5px;background:var(--soft);border-radius:5px;overflow:hidden}
+.milestone-progress>div i{height:100%;display:block;background:var(--forest)}
+.milestone-progress button{grid-column:1/-1;border:1px solid var(--line);background:white;border-radius:7px;padding:8px;font-size:7px}
+.milestone-progress button:disabled{opacity:.5;cursor:not-allowed}
+.incident-layout{display:grid;grid-template-columns:1.35fr .65fr;gap:14px}
+.incident-register{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.incident-register .section-title{padding:24px 24px 4px}
+.incident-row{display:grid;grid-template-columns:.8fr 1fr .6fr 1fr .8fr;border-top:1px solid var(--line);font-size:8px}
+.incident-row>*{padding:13px 15px;border-left:1px solid var(--line)}
+.incident-row>*:first-child{border-left:0}
+.incident-row>span{color:var(--muted)}
+.incident-row>b{color:var(--copper)}
+.incident-head{background:#eee9df;text-transform:uppercase;letter-spacing:.07em;font-size:7px}
+.incident-action{background:var(--forest);color:white;border-radius:14px;padding:26px;display:flex;flex-direction:column}
+.incident-action h2{font:400 28px Georgia,serif;margin:11px 0}
+.incident-action p{font-size:8px;line-height:1.6;color:#c4d1cc}
+.incident-action button,.field-composer button,.new-change-card button,.message-composer button{margin-top:auto;border:0;background:#f5eadc;color:var(--forest);border-radius:8px;padding:11px;font-size:8px;font-weight:750}
+.incident-action button:disabled,.field-composer button:disabled,.new-change-card button:disabled{opacity:.4;cursor:not-allowed}
+.field-layout{display:grid;grid-template-columns:1.35fr .65fr;gap:14px;margin-top:24px;align-items:start}
+.field-feed{display:grid;gap:12px}
+.field-feed article{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px}
+.field-meta{display:flex;justify-content:space-between;gap:15px}
+.field-meta span,.field-meta small{font-size:7px;color:var(--muted)}
+.field-feed h3{font:400 24px Georgia,serif;margin:15px 0 7px}
+.field-feed article>p{font-size:9px;line-height:1.6;color:var(--muted)}
+.photo-records{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:18px}
+.photo-records>div{aspect-ratio:1.45;border-radius:9px;background:linear-gradient(145deg,#294f45,#112f28);color:white;padding:12px;display:grid;align-content:space-between}
+.photo-records span{font:400 18px Georgia,serif;color:#dfb995}
+.photo-records strong{font-size:8px}
+.photo-records small{font-size:6px;color:#aebfb8}
+.field-composer{background:var(--forest);color:white;border-radius:14px;padding:25px;position:sticky;top:100px;display:flex;flex-direction:column;min-height:355px}
+.field-composer h2{font:400 28px Georgia,serif;margin:12px 0}
+.field-composer textarea,.message-composer textarea,.message-composer select{border:1px solid #ffffff28;border-radius:8px;background:#fffdf8;color:var(--ink);padding:11px;font:inherit;font-size:9px;resize:vertical}
+.field-composer small{font-size:7px;color:#aebfb8;line-height:1.5;margin-top:8px}
+.message-workspace{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}
+.message-thread{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:24px}
+.message-thread>div:not(.section-title){max-width:84%;border:1px solid var(--line);border-radius:10px;padding:13px;margin-top:9px}
+.message-thread>div.homeowner{margin-left:auto;background:#edf4ef}
+.message-thread>div.contractor{background:#f4eee4}
+.message-thread>div>div{display:flex;justify-content:space-between;gap:10px}
+.message-thread strong{font-size:8px}
+.message-thread span{font-size:7px;color:var(--muted)}
+.message-thread b{display:block;font-size:7px;color:var(--copper);margin-top:7px}
+.message-thread p{font-size:8px;line-height:1.5;margin:5px 0 0}
+.message-composer{background:#eee9df;border:1px solid var(--line);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:11px}
+.message-composer label{display:grid;gap:6px;font-size:8px;font-weight:700}
+.message-composer select,.message-composer textarea{border-color:var(--line)}
+.message-composer small{font-size:7px;color:var(--muted);line-height:1.5}
+.change-summary{display:grid;grid-template-columns:repeat(5,1fr);background:var(--line);border:1px solid var(--line);gap:1px;border-radius:13px;overflow:hidden;margin-top:24px}
+.change-summary>div{background:var(--card);padding:18px;display:grid;gap:5px}
+.change-summary span{font-size:7px;color:var(--muted)}
+.change-summary strong{font:400 20px Georgia,serif}
+.construction-change-list{display:grid;gap:10px}
+.construction-change-list article{display:grid;grid-template-columns:90px 1fr 230px;background:var(--card);border:1px solid var(--line);border-radius:13px;overflow:hidden}
+.construction-change-list article.pending{box-shadow:inset 3px 0 #c58b57}
+.construction-change-list article.approved{box-shadow:inset 3px 0 #39714d}
+.construction-change-list article.declined{opacity:.72}
+.change-id{background:#eee9df;padding:20px;display:grid;align-content:start;gap:9px}
+.change-id span{font:400 18px Georgia,serif}
+.change-id b{font-size:7px;text-transform:uppercase;color:var(--copper)}
+.change-body{padding:20px}
+.change-body>small{font-size:7px;color:var(--muted)}
+.change-body h3{font:400 22px Georgia,serif;margin:8px 0 15px}
+.change-body p{display:grid;grid-template-columns:125px 1fr;gap:10px;font-size:8px;line-height:1.5;margin:8px 0}
+.change-body p strong{font-size:7px;color:var(--muted);text-transform:uppercase}
+.change-impact{border-left:1px solid var(--line);padding:20px;display:grid;align-content:start;gap:9px}
+.change-impact>span{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding-bottom:9px}
+.change-impact small{font-size:7px;color:var(--muted)}
+.change-impact strong{font:400 18px Georgia,serif}
+.change-impact>div{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px}
+.change-impact button{border:1px solid var(--line);border-radius:7px;background:white;padding:8px;font-size:7px}
+.change-impact button.approve{background:var(--forest);color:white;border-color:var(--forest)}
+.change-impact em{font-size:7px;color:var(--muted);font-style:normal}
+.new-change-card,.substantial-action,.substantial-complete-banner{background:var(--forest);color:white;border-radius:14px;padding:30px;display:grid;grid-template-columns:1fr auto;gap:35px;align-items:center}
+.new-change-card h2,.substantial-action h2,.substantial-complete-banner h2{font:400 30px Georgia,serif;margin:10px 0}
+.new-change-card p,.substantial-action p,.substantial-complete-banner p{font-size:8px;line-height:1.6;color:#c4d1cc;margin:0}
+.change-protection{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:18px 24px;margin-top:22px;display:grid;grid-template-columns:150px 1fr;gap:20px}
+.change-protection strong{font-size:9px}
+.change-protection span{font-size:8px;line-height:1.6;color:var(--muted)}
+.payment-protection-banner{margin-top:24px;border-radius:14px;background:var(--forest);color:white;padding:30px;display:grid;grid-template-columns:1fr auto;gap:35px;align-items:center}
+.payment-protection-banner.risk{background:#70443a}
+.payment-protection-banner h2{font:400 30px Georgia,serif;margin:10px 0}
+.payment-protection-banner p{font-size:8px;color:#c4d1cc;line-height:1.6;margin:0}
+.payment-protection-banner>div:last-child{text-align:right;display:grid}
+.payment-protection-banner>div:last-child strong{font:400 43px Georgia,serif}
+.payment-protection-banner>div:last-child span{font-size:7px;color:#c4d1cc}
+.construction-payments{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.construction-payments article{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:20px;min-height:395px;display:flex;flex-direction:column}
+.construction-payments article.approved{box-shadow:inset 0 3px #39714d}
+.construction-payments article.requested{box-shadow:inset 0 3px #c58b57}
+.construction-payments article>div:first-child{display:flex;justify-content:space-between}
+.construction-payments article>div span{font:400 18px Georgia,serif;color:var(--copper)}
+.construction-payments article>div b{font-size:7px;text-transform:uppercase}
+.construction-payments article>small{font-size:7px;color:var(--muted);margin-top:20px}
+.construction-payments h3{font:400 20px Georgia,serif;margin:5px 0}
+.construction-payments article>strong{font:400 27px Georgia,serif}
+.construction-payments article>p{font-size:8px;line-height:1.55;color:var(--muted);min-height:70px}
+.construction-payments dl{margin:0}
+.construction-payments dl>div{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:8px 0;font-size:7px}
+.construction-payments dd{margin:0;font-weight:700}
+.construction-payments article>button{margin-top:auto;border:1px solid var(--line);background:white;border-radius:7px;padding:9px;font-size:7px;text-align:left}
+.construction-payments article>button:not(:disabled){background:var(--forest);color:white;border-color:var(--forest)}
+.payment-ledger{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.payment-ledger .section-title{padding:24px 25px 5px}
+.payment-ledger>div:not(.section-title){display:grid;grid-template-columns:1.2fr .7fr .7fr .7fr .7fr;border-top:1px solid var(--line);font-size:8px}
+.payment-ledger>div:not(.section-title)>*{padding:13px 16px;border-left:1px solid var(--line)}
+.payment-ledger>div:not(.section-title)>*:first-child{border-left:0}
+.payment-ledger span{color:var(--muted)}
+.completion-overview{display:grid;grid-template-columns:.55fr 1.45fr;border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-top:24px}
+.completion-progress{background:var(--forest);color:white;padding:31px;display:grid;align-content:center}
+.completion-progress>strong{font:400 58px Georgia,serif;margin:15px 0 5px}
+.completion-progress p{font-size:8px;line-height:1.6;color:#c4d1cc}
+.completion-gates{background:var(--card);padding:27px}
+.completion-gates>div{display:grid;grid-template-columns:25px 1fr auto;gap:10px;align-items:center;border-top:1px solid var(--line);padding:12px 0}
+.completion-gates>div:first-child{border-top:0}
+.completion-gates>div>span{width:25px;height:25px;border-radius:50%;background:#f1dfd9;color:#964b3d;display:grid;place-items:center;font-size:8px}
+.completion-gates>div.ready>span{background:var(--forest);color:white}
+.completion-gates strong{font-size:8px}
+.completion-gates small{font-size:7px;color:var(--muted)}
+.completion-gates button{width:100%;margin-top:12px;border:1px solid var(--forest);background:var(--forest);color:white;border-radius:8px;padding:10px;font-size:8px}
+.punch-list{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.punch-list .section-title{padding:24px 25px 5px}
+.punch-row{width:100%;display:grid;grid-template-columns:.55fr 1.75fr .7fr .6fr .7fr;border:0;border-top:1px solid var(--line);background:white;text-align:left;font-size:8px;padding:0}
+.punch-row>*{padding:14px 16px;border-left:1px solid var(--line)}
+.punch-row>*:first-child{border-left:0}
+.punch-row>span{color:var(--muted)}
+.punch-row>b{color:var(--copper)}
+.punch-row>em{font-style:normal;color:var(--copper);font-weight:700}
+.punch-row.resolved{background:#edf4ef}
+.punch-row.resolved>em{color:#39714d}
+.punch-head{background:#eee9df;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-size:7px}
+.punch-head>*{padding:11px 16px}
+.substantial-action,.substantial-complete-banner{margin-top:24px}
+.substantial-action button,.substantial-complete-banner button{border:0;background:#f5eadc;color:var(--forest);border-radius:8px;padding:12px 14px;font-size:9px;font-weight:750}
+.substantial-action button:disabled{opacity:.35;cursor:not-allowed}
+.substantial-complete-banner{background:#123a31}
+
+@media(max-width:1180px){
+  .construction-project-bar{grid-template-columns:1fr 1fr}
+  .sync-pill{justify-self:start;margin:14px 18px}
+  .construction-tabs{grid-template-columns:repeat(3,1fr)}
+  .construction-health{grid-template-columns:1fr}
+  .health-card-grid{grid-template-columns:repeat(2,1fr)}
+  .construction-payments{grid-template-columns:1fr 1fr}
+}
+@media(max-width:900px){
+  .construction-tabs{grid-template-columns:1fr 1fr}
+  .construction-today,.construction-grid,.construction-intro,.incident-layout,.field-layout,.message-workspace,.completion-overview{grid-template-columns:1fr}
+  .today-actions{grid-template-columns:1fr}
+  .today-actions button{border-left:0;border-top:1px solid #ffffff25}
+  .today-actions button:first-child{border-top:0}
+  .milestone-board article{grid-template-columns:40px 1fr}
+  .milestone-progress{grid-column:2}
+  .field-composer{position:static}
+  .change-summary{grid-template-columns:1fr 1fr}
+  .construction-change-list article{grid-template-columns:80px 1fr}
+  .change-impact{grid-column:2;border-left:0;border-top:1px solid var(--line)}
+  .payment-ledger,.punch-list,.incident-register{overflow-x:auto}
+  .payment-ledger>div:not(.section-title),.punch-row{min-width:780px}
+  .incident-row{min-width:720px}
+  .construction-boundary{grid-template-columns:1fr}
+  .construction-boundary>div{border-left:0;border-top:1px solid var(--line)}
+  .construction-boundary>div:first-child{border-top:0}
+}
+@media(max-width:640px){
+  .construction-notice{left:16px;right:16px;top:142px}
+  .construction-heading{display:block}
+  .construction-role-card{width:100%;margin-top:22px}
+  .construction-project-bar{grid-template-columns:1fr}
+  .construction-project-bar>div{border-left:0;border-top:1px solid var(--line)}
+  .construction-project-bar>div:first-child{border-top:0}
+  .construction-tabs{grid-template-columns:1fr}
+  .construction-tabs button{padding:10px}
+  .health-card-grid{grid-template-columns:1fr}
+  .construction-today,.new-change-card,.payment-protection-banner,.substantial-action,.substantial-complete-banner{padding:22px}
+  .construction-grid{margin-top:45px}
+  .activity-list>div{grid-template-columns:1fr 14px 3fr}
+  .activity-list>div:before{left:calc(25% + 6px)}
+  .construction-boundary>div,.change-protection{grid-template-columns:1fr;gap:7px}
+  .milestone-board article{grid-template-columns:1fr}
+  .milestone-progress{grid-column:1}
+  .photo-records{grid-template-columns:1fr}
+  .message-thread>div:not(.section-title){max-width:100%}
+  .change-summary,.construction-payments{grid-template-columns:1fr}
+  .construction-change-list article{grid-template-columns:1fr}
+  .change-impact{grid-column:1}
+  .new-change-card,.payment-protection-banner,.substantial-action,.substantial-complete-banner{grid-template-columns:1fr}
+  .payment-protection-banner>div:last-child{text-align:left}
+}

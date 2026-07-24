@@ -35,5 +35,8 @@ test("renders development preview metadata", async () => {
   assert.match(html, /Agreement readiness/i);
   assert.match(html, /Prepare agreement/i);
   assert.match(html, /Project launch/i);
-  assert.match(html, /protected project kickoff/i);
+  assert.match(html, /Lock one version, record approvals/i);
+  assert.match(html, /Active construction/i);
+  assert.match(html, /Track construction/i);
+  assert.match(html, /protected construction/i);
 });

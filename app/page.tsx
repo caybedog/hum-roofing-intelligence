@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import ConstructionWorkspace from "./construction-workspace";
 
-type View = "overview" | "intelligence" | "costs" | "matches" | "sharing" | "proposals" | "verification" | "agreement" | "launch";
+type View = "overview" | "intelligence" | "costs" | "matches" | "sharing" | "proposals" | "verification" | "agreement" | "launch" | "construction";
 
 type ShareKey = "scope" | "dimensions" | "location" | "budget" | "photos";
 type VerificationStep = "planning" | "tracking" | "findings" | "revised";
@@ -619,6 +620,15 @@ export default function Home() {
     go("launch");
   };
 
+  const openConstruction = () => {
+    if (!launchActivated) {
+      setNotice("Round 8 is using HUM’s protected fictional kickoff record so you can inspect active construction without completing every earlier demo step.");
+      setTimeout(() => setNotice(""), 5000);
+    }
+    setStage(8);
+    go("construction");
+  };
+
   const toggleAgreementItem = (id: string) => {
     if (agreementLocked) {
       setNotice("Agreement version 2 is locked. Unlock it before changing a clarified term.");
@@ -878,6 +888,9 @@ export default function Home() {
           <button className={view === "launch" ? "active" : ""} onClick={openLaunch}>
             <span>08</span> Project launch
           </button>
+          <button className={view === "construction" ? "active" : ""} onClick={openConstruction}>
+            <span>09</span> Active construction
+          </button>
         </nav>
 
         <div className="sidebar-foot">
@@ -890,15 +903,15 @@ export default function Home() {
         <header className="topbar">
           <div>
             <span className="mobile-brand">HUM</span>
-            <span className="project-status"><i /> {launchActivated ? "Project kickoff ready" : view === "launch" ? "Project launch review in progress" : packetPrepared ? "Agreement packet ready" : view === "agreement" ? "Agreement review in progress" : preferredContractor ? "Preferred contractor selected" : inspectionReady ? "Verified scope ready" : visitsScheduled ? "Site visits scheduled" : requestsSent ? "Contractor review active" : "Preliminary scope ready"}</span>
+            <span className="project-status"><i /> {view === "construction" ? "Active construction workspace" : launchActivated ? "Project kickoff ready" : view === "launch" ? "Project launch review in progress" : packetPrepared ? "Agreement packet ready" : view === "agreement" ? "Agreement review in progress" : preferredContractor ? "Preferred contractor selected" : inspectionReady ? "Verified scope ready" : visitsScheduled ? "Site visits scheduled" : requestsSent ? "Contractor review active" : "Preliminary scope ready"}</span>
           </div>
           <div className="top-actions">
             <button className="text-button">Save draft</button>
             <button
               className="primary-button"
-              onClick={() => launchActivated || view === "launch" || packetPrepared ? openLaunch() : preferredContractor || view === "agreement" ? openAgreement() : inspectionReady || visitsScheduled ? openVerification() : go(requestsSent ? "proposals" : "matches")}
+              onClick={() => view === "construction" ? openConstruction() : launchActivated ? openConstruction() : view === "launch" || packetPrepared ? openLaunch() : preferredContractor || view === "agreement" ? openAgreement() : inspectionReady || visitsScheduled ? openVerification() : go(requestsSent ? "proposals" : "matches")}
             >
-              {launchActivated ? "Review kickoff dashboard" : view === "launch" || packetPrepared ? "Continue project launch" : preferredContractor || view === "agreement" ? "Continue agreement review" : inspectionReady ? "Review verified scope" : visitsScheduled ? "Track site visits" : requestsSent ? "Review proposals" : "Find contractors"}
+              {view === "construction" ? "Review active project" : launchActivated ? "Open active construction" : view === "launch" || packetPrepared ? "Continue project launch" : preferredContractor || view === "agreement" ? "Continue agreement review" : inspectionReady ? "Review verified scope" : visitsScheduled ? "Track site visits" : requestsSent ? "Review proposals" : "Find contractors"}
             </button>
           </div>
         </header>
@@ -934,7 +947,7 @@ export default function Home() {
               </section>
 
               <section className="section-block">
-                <div className="section-title"><div><span className="eyebrow">What happens next</span><h2>From questions to a protected project kickoff</h2></div><span className="step-count">Step {stage} of 7</span></div>
+                <div className="section-title"><div><span className="eyebrow">What happens next</span><h2>From questions to protected construction</h2></div><span className="step-count">Step {stage} of 8</span></div>
                 <div className="timeline">
                   {[
                     ["Project intake", "Complete", "Your core property and roof details are structured."],
@@ -944,8 +957,9 @@ export default function Home() {
                     ["Verify on site", inspectionReady ? "Complete" : stage === 5 ? "Current" : "Next", "Replace remote assumptions with documented field findings."],
                     ["Prepare agreement", packetPrepared ? "Complete" : stage === 6 ? "Current" : "Next", "Audit the final scope, evidence, payment terms, and protections."],
                     ["Launch project", launchActivated ? "Complete" : stage === 7 ? "Current" : "Next", "Lock one version, record approvals, and clear every pre-start gate."],
+                    ["Track construction", stage === 8 ? "Current" : "Next", "Coordinate progress, changes, decisions, payments, and issues through substantial completion."],
                   ].map(([title, label, copy], index) => (
-                    <button key={title} className={`timeline-item ${index + 1 === stage && !((index === 4 && inspectionReady) || (index === 5 && packetPrepared) || (index === 6 && launchActivated)) ? "current" : ""}`} onClick={() => { setStage(index + 1); if (index === 1) go("intelligence"); if (index === 2) go("matches"); if (index === 3) go(requestsSent ? "proposals" : "sharing"); if (index === 4) openVerification(); if (index === 5) openAgreement(); if (index === 6) openLaunch(); }}>
+                    <button key={title} className={`timeline-item ${index + 1 === stage && !((index === 4 && inspectionReady) || (index === 5 && packetPrepared) || (index === 6 && launchActivated)) ? "current" : ""}`} onClick={() => { setStage(index + 1); if (index === 1) go("intelligence"); if (index === 2) go("matches"); if (index === 3) go(requestsSent ? "proposals" : "sharing"); if (index === 4) openVerification(); if (index === 5) openAgreement(); if (index === 6) openLaunch(); if (index === 7) openConstruction(); }}>
                       <span className="timeline-number">{index + 1}</span>
                       <span><small>{label}</small><strong>{title}</strong><p>{copy}</p></span>
                     </button>
@@ -2008,6 +2022,8 @@ export default function Home() {
               )}
             </>
           )}
+
+          {view === "construction" && <ConstructionWorkspace />}
         </div>
       </main>
     </div>
