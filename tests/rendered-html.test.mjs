@@ -27,7 +27,7 @@ async function render(pathname = "/") {
   );
 }
 
-test("renders the secure Round 3 foundation as the primary entry", async () => {
+test("renders the secured Round 4 pilot entry", async () => {
   const response = await render("/");
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -35,6 +35,7 @@ test("renders the secure Round 3 foundation as the primary entry", async () => {
   const html = await response.text();
   assert.match(html, developmentPreviewMeta);
   assert.match(html, /Secure roofing intelligence/i);
+  assert.match(html, /Controlled Humboldt pilot/i);
   assert.match(html, /Private by default/i);
   assert.match(html, /Money stays deterministic/i);
   assert.match(html, /History stays reproducible/i);

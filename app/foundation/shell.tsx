@@ -12,6 +12,7 @@ export type WorkspaceView =
   | "photos"
   | "estimate"
   | "sharing"
+  | "pilot"
   | "pricing"
   | "operations";
 
@@ -32,16 +33,19 @@ export default function Shell({
     ["photos", "Private photos", "03"],
     ["estimate", "Estimate", "04"],
     ["sharing", "Contractor access", "05"],
+    ["pilot", "Humboldt pilot", "06"],
   ];
   const contractorItems: Array<[WorkspaceView, string, string]> = [
     ["projects", "Shared projects", "01"],
     ["estimate", "Estimate review", "02"],
     ["sharing", "Corrections", "03"],
+    ["pilot", "Pilot quote", "04"],
   ];
   const adminItems: Array<[WorkspaceView, string, string]> = [
     ["projects", "Projects", "01"],
     ["pricing", "Pricing control", "02"],
     ["operations", "Operations", "03"],
+    ["pilot", "Pilot support", "04"],
   ];
   const items =
     profile.role === "administrator"
@@ -59,8 +63,8 @@ export default function Shell({
         </Link>
         <div className={styles.foundationBadge}>
           <span>Roadmap status</span>
-          <strong>Round 3 · Foundation recovery</strong>
-          <small>Secure intelligence only</small>
+          <strong>Round 4 · Controlled pilot</strong>
+          <small>Real projects · no public marketplace</small>
         </div>
         <nav aria-label="Workspace">
           {items.map(([key, label, number]) => (

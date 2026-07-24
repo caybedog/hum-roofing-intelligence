@@ -9,6 +9,15 @@ import type {
   Project,
   ProjectPhoto,
   ProjectShare,
+  PilotEnrollment,
+  PilotContractorProfile,
+  PilotInvitation,
+  ContractorQuote,
+  QuoteDifferenceReason,
+  PilotFeedback,
+  PilotOutcome,
+  PilotSupportIssue,
+  PilotEvent,
 } from "./types";
 
 export type Json =
@@ -89,6 +98,15 @@ export type Database = {
         created_at: string;
         updated_at: string;
       }>;
+      pilot_enrollments: Table<PilotEnrollment>;
+      pilot_contractor_profiles: Table<PilotContractorProfile>;
+      pilot_invitations: Table<PilotInvitation & { token_digest: string }>;
+      contractor_quotes: Table<ContractorQuote>;
+      quote_difference_reasons: Table<QuoteDifferenceReason>;
+      pilot_feedback: Table<PilotFeedback>;
+      pilot_outcomes: Table<PilotOutcome>;
+      pilot_support_issues: Table<PilotSupportIssue>;
+      pilot_events: Table<PilotEvent>;
       project_photos: Table<ProjectPhotoRow>;
       project_shares: Table<ProjectShare>;
       projects: Table<ProjectRow>;
@@ -125,6 +143,29 @@ export type Database = {
       };
       share_project_with_contractor_email: {
         Args: { p_project_id: string; p_contractor_email: string };
+        Returns: string;
+      };
+      create_pilot_invitation: {
+        Args: { p_project_id: string; p_expires_days?: number };
+        Returns: Array<{
+          invitation_id: string;
+          invitation_token: string;
+          invitation_expires_at: string;
+        }>;
+      };
+      accept_pilot_invitation: {
+        Args: { p_invitation_token: string };
+        Returns: string;
+      };
+      set_pilot_contractor_status: {
+        Args: {
+          p_contractor_id: string;
+          p_company_name: string;
+          p_license_number: string | null;
+          p_service_area: string;
+          p_status: "pending" | "approved" | "paused";
+          p_onboarding_notes?: string;
+        };
         Returns: string;
       };
     };

@@ -1,4 +1,4 @@
--- HUM Round 3 authorization regression checks.
+-- HUM Round 3 and Round 4 authorization regression checks.
 -- Run against a disposable database or through a transaction-capable SQL client.
 -- Every test record is rolled back.
 
@@ -373,6 +373,273 @@ begin
     )
   ) = 0 then
     raise exception 'Audit failure: protected changes did not create events';
+  end if;
+end;
+$$;
+
+reset role;
+
+insert into public.estimates (
+  id,
+  project_id,
+  version_number,
+  pricing_version_id,
+  homeowner_inputs,
+  calculation_inputs,
+  calculation_result,
+  confidence_score,
+  created_by
+)
+select
+  '70000000-0000-0000-0000-000000000001',
+  '40000000-0000-0000-0000-000000000001',
+  1,
+  pricing_versions.id,
+  '{}'::jsonb,
+  '{}'::jsonb,
+  '{"scenarios":{"expected":{"planningPrice":20000}}}'::jsonb,
+  80,
+  '10000000-0000-0000-0000-000000000001'
+from public.pricing_versions
+where status = 'approved'
+order by effective_date desc
+limit 1;
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"30000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+
+select public.set_pilot_contractor_status(
+  '20000000-0000-0000-0000-000000000001',
+  'RLS Roofing',
+  'TEST-123',
+  'Humboldt County',
+  'approved',
+  'Transaction-only Round 4 test'
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+
+insert into public.pilot_enrollments (
+  id,
+  project_id,
+  homeowner_id,
+  homeowner_consent,
+  consented_at,
+  intake_started_at,
+  intake_completed_at
+)
+values (
+  '80000000-0000-0000-0000-000000000001',
+  '40000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000001',
+  true,
+  now(),
+  now() - interval '15 minutes',
+  now()
+);
+
+do $$
+declare
+  invitation_token text;
+  accepted_share_id uuid;
+begin
+  select created.invitation_token
+  into invitation_token
+  from public.create_pilot_invitation(
+    '40000000-0000-0000-0000-000000000001',
+    14
+  ) as created;
+
+  if invitation_token is null or char_length(invitation_token) <> 48 then
+    raise exception 'Pilot failure: invitation token was not generated safely';
+  end if;
+
+  perform set_config(
+    'request.jwt.claims',
+    '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}',
+    true
+  );
+
+  select public.accept_pilot_invitation(invitation_token)
+  into accepted_share_id;
+
+  if accepted_share_id is null then
+    raise exception 'Pilot failure: approved contractor could not accept invitation';
+  end if;
+end;
+$$;
+
+insert into public.contractor_quotes (
+  id,
+  project_id,
+  estimate_id,
+  contractor_id,
+  status,
+  material_amount,
+  labor_amount,
+  tearoff_disposal_amount,
+  permit_delivery_amount,
+  allowance_amount,
+  scope_summary,
+  submitted_at
+)
+values (
+  '90000000-0000-0000-0000-000000000001',
+  '40000000-0000-0000-0000-000000000001',
+  '70000000-0000-0000-0000-000000000001',
+  '20000000-0000-0000-0000-000000000001',
+  'submitted',
+  9000,
+  7000,
+  1800,
+  700,
+  500,
+  'Remove one layer and install architectural shingles with standard flashing.',
+  now()
+);
+
+insert into public.quote_difference_reasons (
+  quote_id,
+  project_id,
+  contractor_id,
+  reason_code,
+  direction,
+  amount_effect,
+  explanation
+)
+values (
+  '90000000-0000-0000-0000-000000000001',
+  '40000000-0000-0000-0000-000000000001',
+  '20000000-0000-0000-0000-000000000001',
+  'access',
+  'higher',
+  500,
+  'Rear access requires additional hand carrying.'
+);
+
+do $$
+begin
+  if (select count(*) from public.contractor_quotes) <> 1 then
+    raise exception 'Pilot RLS failure: invited contractor cannot see own quote';
+  end if;
+
+  if not exists (
+    select 1
+    from public.pilot_enrollments
+    where project_id = '40000000-0000-0000-0000-000000000001'
+      and status = 'quote_received'
+  ) then
+    raise exception 'Pilot workflow failure: submitted quote did not update pilot status';
+  end if;
+
+  begin
+    insert into public.contractor_quotes (
+      project_id,
+      estimate_id,
+      contractor_id,
+      scope_summary
+    )
+    values (
+      '40000000-0000-0000-0000-000000000002',
+      '70000000-0000-0000-0000-000000000001',
+      '20000000-0000-0000-0000-000000000001',
+      'This cross-project quote must never be accepted.'
+    );
+    raise exception 'Pilot RLS failure: contractor quoted an unshared project';
+  exception
+    when foreign_key_violation or insufficient_privilege or check_violation then null;
+  end;
+end;
+$$;
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-0000-0000-000000000002","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  if (select count(*) from public.pilot_enrollments) <> 0 then
+    raise exception 'Pilot RLS failure: unrelated homeowner sees an enrollment';
+  end if;
+  if (select count(*) from public.contractor_quotes) <> 0 then
+    raise exception 'Pilot RLS failure: unrelated homeowner sees a contractor quote';
+  end if;
+  if (select count(*) from public.quote_difference_reasons) <> 0 then
+    raise exception 'Pilot RLS failure: unrelated homeowner sees difference reasons';
+  end if;
+end;
+$$;
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+
+insert into public.pilot_outcomes (
+  project_id,
+  recorded_by,
+  accepted_quote_id,
+  final_contract_amount,
+  outcome_status
+)
+values (
+  '40000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000001',
+  '90000000-0000-0000-0000-000000000001',
+  19000,
+  'contractor_selected'
+);
+
+update public.project_shares
+set revoked_at = now()
+where project_id = '40000000-0000-0000-0000-000000000001'
+  and contractor_id = '20000000-0000-0000-0000-000000000001'
+  and revoked_at is null;
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"20000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  if (select count(*) from public.contractor_quotes) <> 0 then
+    raise exception 'Pilot RLS failure: revoked contractor still sees quote evidence';
+  end if;
+  if (select count(*) from public.pilot_outcomes) <> 0 then
+    raise exception 'Pilot RLS failure: revoked contractor still sees homeowner outcome';
+  end if;
+end;
+$$;
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"30000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+
+do $$
+begin
+  if (select count(*) from public.pilot_enrollments) <> 1 then
+    raise exception 'Pilot RLS failure: administrator cannot see enrollment evidence';
+  end if;
+  if (select count(*) from public.contractor_quotes) <> 1 then
+    raise exception 'Pilot RLS failure: administrator cannot see quote evidence';
+  end if;
+  if (select count(*) from public.pilot_outcomes) <> 1 then
+    raise exception 'Pilot RLS failure: administrator cannot see outcome evidence';
   end if;
 end;
 $$;

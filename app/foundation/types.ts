@@ -189,3 +189,183 @@ export type ContractorReview = {
   submitted_at: string | null;
   updated_at: string;
 };
+
+export type PricingObservation = {
+  id: string;
+  project_id: string;
+  estimate_id: string | null;
+  observed_by: string;
+  pricing_code: string;
+  observed_value: number;
+  source_note: string;
+  status: "proposed" | "reviewed" | "rejected";
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PilotEnrollment = {
+  id: string;
+  project_id: string;
+  homeowner_id: string;
+  status:
+    | "preparing"
+    | "contractor_review"
+    | "quote_received"
+    | "comparison_ready"
+    | "closed"
+    | "withdrawn";
+  homeowner_consent: boolean;
+  consented_at: string | null;
+  intake_started_at: string | null;
+  intake_completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PilotContractorProfile = {
+  contractor_id: string;
+  company_name: string;
+  license_number: string | null;
+  service_area: string;
+  status: "pending" | "approved" | "paused";
+  onboarding_notes: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PilotInvitation = {
+  id: string;
+  project_id: string;
+  created_by: string;
+  expires_at: string;
+  accepted_by: string | null;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+};
+
+export type ContractorQuote = {
+  id: string;
+  project_id: string;
+  estimate_id: string;
+  contractor_id: string;
+  status: "draft" | "submitted" | "withdrawn";
+  material_amount: number;
+  labor_amount: number;
+  tearoff_disposal_amount: number;
+  permit_delivery_amount: number;
+  allowance_amount: number;
+  other_amount: number;
+  total_amount: number;
+  scope_summary: string;
+  exclusions: string;
+  quote_reference: string | null;
+  valid_until: string | null;
+  submitted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QuoteDifferenceReason = {
+  id: string;
+  quote_id: string;
+  project_id: string;
+  contractor_id: string;
+  reason_code:
+    | "material_price"
+    | "labor_rate"
+    | "scope_added"
+    | "scope_removed"
+    | "measurement"
+    | "access"
+    | "permit"
+    | "disposal"
+    | "warranty"
+    | "market_conditions"
+    | "allowance"
+    | "other";
+  direction: "higher" | "lower" | "neutral";
+  amount_effect: number | null;
+  explanation: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PilotFeedback = {
+  id: string;
+  project_id: string;
+  submitted_by: string;
+  audience: "homeowner" | "contractor";
+  understanding_rating: number | null;
+  usefulness_rating: number | null;
+  completion_ease_rating: number | null;
+  feedback_text: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PilotOutcome = {
+  id: string;
+  project_id: string;
+  recorded_by: string;
+  accepted_quote_id: string | null;
+  final_contract_amount: number | null;
+  change_order_total: number;
+  outcome_status:
+    | "undecided"
+    | "contractor_selected"
+    | "contract_signed_elsewhere"
+    | "project_paused"
+    | "project_cancelled";
+  notes: string;
+  recorded_at: string;
+  updated_at: string;
+};
+
+export type PilotSupportIssue = {
+  id: string;
+  project_id: string | null;
+  reported_by: string;
+  category:
+    | "privacy"
+    | "authorization"
+    | "estimate"
+    | "photos"
+    | "quote"
+    | "intake"
+    | "usability"
+    | "other";
+  severity: "low" | "normal" | "high" | "critical";
+  status: "open" | "investigating" | "resolved" | "closed";
+  description: string;
+  resolution: string;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PilotEvent = {
+  id: string;
+  project_id: string | null;
+  actor_id: string;
+  event_name:
+    | "pilot_enrolled"
+    | "intake_completed"
+    | "estimate_generated"
+    | "brief_printed"
+    | "invitation_created"
+    | "invitation_accepted"
+    | "contractor_review_submitted"
+    | "quote_submitted"
+    | "comparison_viewed"
+    | "feedback_submitted"
+    | "outcome_recorded";
+  duration_seconds: number | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};

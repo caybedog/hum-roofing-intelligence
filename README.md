@@ -1,8 +1,8 @@
 # HUM Roofing Intelligence
 
-HUM is a secure roofing-intelligence workspace for Humboldt County homeowners. The official product sequence is locked to the HUM roadmap. This repository currently implements the recovered **Round 3 foundation**; later marketplace, agreement, and construction screens are preserved at `/prototypes` but do not count as completed roadmap rounds.
+HUM is a secure roofing-intelligence workspace for Humboldt County homeowners. The official product sequence is locked to the HUM roadmap. This repository contains the completed **Round 3 foundation** and the **Round 4 controlled-pilot system**; later marketplace, agreement, and construction screens are preserved at `/prototypes` but do not count as completed roadmap rounds.
 
-## What Round 3 includes
+## What the secured foundation includes
 
 - Email registration, sign-in, sign-out, and password recovery
 - Separate homeowner, contractor, and administrator roles
@@ -17,7 +17,27 @@ HUM is a secure roofing-intelligence workspace for Humboldt County homeowners. T
 - Separate contractor corrections and pricing observations
 - Administrator review, role, pricing-version, AI-health, and audit controls
 
-Round 3 does **not** activate a marketplace, contractor bidding, payments, agreements, external messaging, reviews, multiple trades, or a public Humboldt launch.
+Round 4 does **not** activate a public marketplace, competitive bidding, bid awarding, payments, agreements, external messaging, public contractor profiles, multiple trades, or a public Humboldt launch.
+
+## Round 4 controlled pilot
+
+Round 4 adds the evidence workflow needed to decide whether the roofing intelligence is useful on real Humboldt projects:
+
+- homeowner-controlled pilot enrollment and consent
+- expiring contractor invitation links stored only as hashes
+- manual contractor pilot approval
+- protected, printable contractor project briefs
+- contractor estimate review and correction records
+- itemized actual quote capture
+- HUM estimate-versus-quote comparisons
+- reason codes and explanations for material, labor, scope, measurement, access, permit, disposal, warranty, allowance, and market differences
+- homeowner and contractor feedback
+- final accepted contract and change-order observations recorded as outside-HUM outcomes
+- support and critical privacy/authorization issue queues
+- intake and pilot event analytics
+- administrator accuracy evidence and exit-gate dashboard
+
+Round 5 remains locked until at least ten real roofing projects have comparable quotes, major differences are explained, both audiences understand the brief, and no critical privacy or authorization failure remains.
 
 ## Update and run on macOS
 
@@ -174,4 +194,4 @@ https://hum-roofing-intelligence.caybedog707.chatgpt.site/**
 https://<production-vercel-domain>/**
 ```
 
-The live site remains access-restricted while Round 3 is validated. Round 4 is the roadmap’s real-world pilot and may begin only after every Round 3 exit gate passes.
+The live site remains a controlled pilot. A manually approved contractor can access only a project whose homeowner invitation they accept. Round 5 does not begin merely because the Round 4 interface exists; the ten-project evidence gate must be met with real Humboldt projects.

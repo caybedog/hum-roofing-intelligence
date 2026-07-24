@@ -10,6 +10,7 @@ import HomeownerWorkspace from "./homeowner-workspace";
 import ContractorWorkspace from "./contractor-workspace";
 import AdminWorkspace from "./admin-workspace";
 import styles from "./foundation.module.css";
+import PilotWorkspace from "./pilot-workspace";
 
 export default function FoundationApp() {
   const [session, setSession] = useState<Session | null>(null);
@@ -141,22 +142,40 @@ export default function FoundationApp() {
   return (
     <Shell profile={profile} view={view} onView={setView}>
       {profile.role === "homeowner" && (
-        <HomeownerWorkspace
-          profile={profile}
-          session={session}
-          view={view}
-          onView={setView}
-        />
+        <>
+          {view === "pilot" ? (
+            <PilotWorkspace profile={profile} />
+          ) : (
+            <HomeownerWorkspace
+              profile={profile}
+              session={session}
+              view={view}
+              onView={setView}
+            />
+          )}
+        </>
       )}
       {profile.role === "contractor" && (
-        <ContractorWorkspace
-          profile={profile}
-          view={view}
-          onView={setView}
-        />
+        <>
+          {view === "pilot" ? (
+            <PilotWorkspace profile={profile} />
+          ) : (
+            <ContractorWorkspace
+              profile={profile}
+              view={view}
+              onView={setView}
+            />
+          )}
+        </>
       )}
       {profile.role === "administrator" && (
-        <AdminWorkspace profile={profile} view={view} onView={setView} />
+        <>
+          {view === "pilot" ? (
+            <PilotWorkspace profile={profile} />
+          ) : (
+            <AdminWorkspace profile={profile} view={view} onView={setView} />
+          )}
+        </>
       )}
     </Shell>
   );

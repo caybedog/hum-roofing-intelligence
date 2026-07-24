@@ -7,6 +7,473 @@
     #f4f1e9;
 }
 
+.pilotBoundary {
+  align-items: center;
+  background: #192a24;
+  border-radius: 16px;
+  color: #f7f2e8;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-top: 22px;
+  padding: 14px 18px;
+}
+
+.pilotBoundary strong {
+  color: #d6b663;
+  flex: 0 0 auto;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pilotBoundary span {
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.pilotPanel,
+.pilotWarning,
+.pilotSuccess {
+  background: #fffdf8;
+  border: 1px solid #d9d4c8;
+  border-radius: 22px;
+  box-shadow: 0 16px 42px rgba(31, 45, 38, 0.07);
+  margin-top: 22px;
+  padding: 26px;
+}
+
+.pilotPanel h2,
+.pilotWarning h2,
+.pilotSuccess h2 {
+  margin: 3px 0 12px;
+}
+
+.pilotWarning {
+  background: #fff8e6;
+  border-color: #dfc16f;
+}
+
+.pilotWarning strong,
+.pilotSuccess strong {
+  display: block;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 21px;
+  margin-bottom: 5px;
+}
+
+.pilotWarning p,
+.pilotSuccess span {
+  color: #5f665f;
+  line-height: 1.55;
+}
+
+.pilotSuccess {
+  align-items: center;
+  background: #edf6ef;
+  border-color: #a9c5ad;
+  display: flex;
+  justify-content: space-between;
+}
+
+.pilotPanelHead {
+  align-items: start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+}
+
+.pilotPanelHead h2 {
+  margin-bottom: 0;
+}
+
+.pilotCallout {
+  background: #f1eee6;
+  border-left: 3px solid #c39b38;
+  border-radius: 0 12px 12px 0;
+  color: #48534d;
+  line-height: 1.55;
+  margin: 18px 0;
+  padding: 13px 16px;
+}
+
+.pilotFootnote {
+  border-top: 1px solid #e3ded2;
+  color: #6b716c;
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 22px 0 0;
+  padding-top: 14px;
+}
+
+.pilotStatGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 24px;
+}
+
+.pilotStat {
+  background: #fffdf8;
+  border: 1px solid #d9d4c8;
+  border-radius: 18px;
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+.pilotStat span {
+  color: #6b716c;
+  font-size: 12px;
+}
+
+.pilotStat strong {
+  color: #192a24;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 30px;
+}
+
+.pilotStatAlert {
+  background: #fff1ed;
+  border-color: #d98671;
+}
+
+.pilotTwoColumn {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+}
+
+.pilotThreeColumn {
+  display: grid;
+  gap: 15px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 16px 0;
+}
+
+.pilotAmountGrid {
+  display: grid;
+  gap: 15px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 18px 0;
+}
+
+.pilotStack {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.pilotQueueRow {
+  align-items: center;
+  border: 1px solid #e0dbd0;
+  border-radius: 14px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.pilotQueueRow > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.pilotQueueRow small {
+  color: #6b716c;
+  line-height: 1.4;
+}
+
+.pilotRowActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pilotQueueCounts {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.pilotQueueCounts span {
+  background: #f2efe7;
+  border-radius: 14px;
+  color: #606862;
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+}
+
+.pilotQueueCounts strong {
+  color: #192a24;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 25px;
+}
+
+.pilotTable {
+  overflow-x: auto;
+}
+
+.pilotTableHead,
+.pilotTableRow {
+  align-items: center;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(170px, 1.4fr) repeat(4, minmax(110px, 1fr));
+  min-width: 720px;
+  padding: 12px 8px;
+}
+
+.pilotTableHead {
+  border-bottom: 1px solid #cfc8bb;
+  color: #777d78;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pilotTableRow {
+  border-bottom: 1px solid #ebe6dc;
+  font-size: 13px;
+}
+
+.pilotGateGrid {
+  display: grid;
+  gap: 11px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.pilotGateDone,
+.pilotGatePending {
+  align-items: center;
+  border: 1px solid #d6d0c4;
+  border-radius: 14px;
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+}
+
+.pilotGateDone {
+  background: #edf6ef;
+  border-color: #afc9b3;
+}
+
+.pilotGatePending {
+  background: #f5f2eb;
+  color: #707670;
+}
+
+.pilotGateDone span,
+.pilotGatePending span {
+  align-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  display: inline-flex;
+  height: 23px;
+  justify-content: center;
+  width: 23px;
+}
+
+.pilotConsent {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 22px;
+}
+
+.pilotConsent span {
+  color: #58625c;
+  padding-left: 22px;
+  position: relative;
+}
+
+.pilotConsent span::before {
+  color: #62806b;
+  content: "✓";
+  left: 0;
+  position: absolute;
+}
+
+.pilotBriefHero {
+  background: #192a24;
+  border-radius: 18px;
+  color: #f9f3e7;
+  display: grid;
+  gap: 1px;
+  grid-template-columns: 1.35fr 0.65fr;
+  margin: 20px 0;
+  overflow: hidden;
+}
+
+.pilotBriefHero > div {
+  display: grid;
+  gap: 5px;
+  padding: 20px;
+}
+
+.pilotBriefHero > div + div {
+  background: #233b31;
+}
+
+.pilotBriefHero span,
+.pilotBriefHero small {
+  color: #c6cec9;
+  font-size: 12px;
+}
+
+.pilotBriefHero strong {
+  color: #f3d783;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 30px;
+}
+
+.pilotBriefGrid {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.pilotBriefGrid > div {
+  background: #f2efe7;
+  min-height: 170px;
+  padding: 20px;
+}
+
+.pilotBriefGrid h3 {
+  color: #192a24;
+  margin: 0 0 10px;
+}
+
+.pilotBriefGrid p,
+.pilotBriefGrid li {
+  color: #56605a;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.pilotBriefGrid ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.pilotComparisonGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.pilotComparisonCard {
+  background: #f2efe7;
+  border: 1px solid #ddd7cb;
+  border-radius: 16px;
+  display: grid;
+  gap: 7px;
+  padding: 18px;
+}
+
+.pilotComparisonCard > span,
+.pilotComparisonCard small {
+  color: #6b716c;
+  font-size: 12px;
+}
+
+.pilotComparisonCard > strong {
+  color: #192a24;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 29px;
+}
+
+.pilotComparisonCard p {
+  border-top: 1px solid #d9d3c7;
+  color: #555f59;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 10px 0 0;
+  padding-top: 10px;
+}
+
+@media (max-width: 980px) {
+  .pilotStatGrid,
+  .pilotAmountGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pilotTwoColumn {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .pilotBoundary,
+  .pilotPanelHead,
+  .pilotSuccess,
+  .pilotQueueRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .pilotBoundary span {
+    text-align: left;
+  }
+
+  .pilotPanel,
+  .pilotWarning,
+  .pilotSuccess {
+    border-radius: 18px;
+    padding: 20px;
+  }
+
+  .pilotStatGrid,
+  .pilotThreeColumn,
+  .pilotAmountGrid,
+  .pilotGateGrid,
+  .pilotBriefHero,
+  .pilotBriefGrid,
+  .pilotComparisonGrid,
+  .pilotQueueCounts {
+    grid-template-columns: 1fr;
+  }
+
+  .pilotBriefHero > div + div {
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+}
+
+@media print {
+  .sidebar,
+  .mobileHeader,
+  .noPrint,
+  .workspace > *:not(.printBrief) {
+    display: none !important;
+  }
+
+  .shell,
+  .main,
+  .workspace {
+    display: block !important;
+    margin: 0 !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .printBrief {
+    border: 0;
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .pilotBriefHero {
+    print-color-adjust: exact;
+  }
+}
+
 .authPage {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(380px, 0.8fr);
