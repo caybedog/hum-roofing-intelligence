@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 
-type View = "overview" | "intelligence" | "costs" | "matches" | "sharing" | "proposals";
+type View = "overview" | "intelligence" | "costs" | "matches" | "sharing" | "proposals" | "verification";
 
 type ShareKey = "scope" | "dimensions" | "location" | "budget" | "photos";
+type VerificationStep = "planning" | "tracking" | "findings" | "revised";
 
 const money = (value: number) =>
   new Intl.NumberFormat("en-US", {
@@ -58,6 +59,11 @@ const proposals = [
     included: ["Tear-off and disposal", "Architectural shingles", "Synthetic underlayment", "Chimney flashing replacement"],
     exclusions: ["Decking beyond 4 sheets", "Interior ceiling repair"],
     flags: ["Decking allowance is capped", "Permit fee needs confirmation"],
+    revisedTotal: 21680,
+    revisedTimeline: "4–5 workdays",
+    revisedStart: "3–4 weeks",
+    scopeChanges: ["Second tear-off layer included", "7 decking sheets carried", "Permit fee included", "Chimney flashing scope confirmed"],
+    openTerms: ["Unit price for decking beyond 7 sheets", "Final shingle color selection"],
   },
   {
     contractor: "North Coast Exteriors",
@@ -73,6 +79,69 @@ const proposals = [
     included: ["Tear-off and disposal", "Architectural shingles", "Peel-and-stick valleys", "Chimney flashing replacement", "Up to 6 decking sheets"],
     exclusions: ["Interior ceiling repair"],
     flags: ["Material product line not named", "Change-order labor rate not stated"],
+    revisedTotal: 22320,
+    revisedTimeline: "4–5 workdays",
+    revisedStart: "About 3 weeks",
+    scopeChanges: ["Second tear-off layer included", "7 decking sheets carried", "Permit fee included", "Named shingle system added"],
+    openTerms: ["Change-order labor rate", "Interior protection method"],
+  },
+];
+
+const visitWindowOptions = [
+  "Tuesday, Aug 4 · 9–11 AM",
+  "Tuesday, Aug 4 · 1–3 PM",
+  "Wednesday, Aug 5 · 9–11 AM",
+  "Wednesday, Aug 5 · 1–3 PM",
+];
+
+const inspectionFacts = [
+  {
+    label: "Roof measurement",
+    value: "13.6 squares",
+    note: "Eave-to-ridge field measurement with waste excluded",
+    status: "Field verified",
+  },
+  {
+    label: "Pitch and form",
+    value: "6:12 hip roof",
+    note: "Moderate pitch with four primary planes",
+    status: "Field verified",
+  },
+  {
+    label: "Existing layers",
+    value: "Two asphalt layers",
+    note: "Second layer visible at rake edge and attic opening",
+    status: "Field verified",
+  },
+  {
+    label: "Decking condition",
+    value: "7-sheet allowance",
+    note: "Seven soft areas mapped; final quantity remains concealed until tear-off",
+    status: "Still conditional",
+  },
+  {
+    label: "Chimney and flashing",
+    value: "Full flashing replacement",
+    note: "Step and counter flashing are both included in the revised scope",
+    status: "Field verified",
+  },
+  {
+    label: "Ventilation",
+    value: "4 box vents + intake review",
+    note: "Existing exhaust counted; intake balance remains a design check",
+    status: "Needs clarification",
+  },
+  {
+    label: "Access and disposal",
+    value: "Driveway staging confirmed",
+    note: "Two-story rear slope requires controlled hand carry",
+    status: "Field verified",
+  },
+  {
+    label: "Permit responsibility",
+    value: "Contractor obtains permit",
+    note: "Published fee is carried in both revised proposals",
+    status: "Field verified",
   },
 ];
 
@@ -95,14 +164,25 @@ export default function Home() {
   });
   const [message, setMessage] = useState("Please review the preliminary scope and note anything that needs on-site verification.");
   const [compare, setCompare] = useState<string[]>(proposals.map((proposal) => proposal.contractor));
+  const [visitContractors, setVisitContractors] = useState<string[]>(proposals.map((proposal) => proposal.contractor));
+  const [visitWindows, setVisitWindows] = useState<Record<string, string>>({
+    "Redwood Roofworks": visitWindowOptions[0],
+    "North Coast Exteriors": visitWindowOptions[3],
+  });
+  const [visitConsent, setVisitConsent] = useState(false);
+  const [visitsScheduled, setVisitsScheduled] = useState(false);
+  const [inspectionReady, setInspectionReady] = useState(false);
+  const [verificationStep, setVerificationStep] = useState<VerificationStep>("planning");
+  const [preferredContractor, setPreferredContractor] = useState("");
+  const [clarifications, setClarifications] = useState<string[]>([]);
 
   const estimate = useMemo(() => {
     const pitchFactor = pitch === "Steep" ? 1.28 : pitch === "Low" ? 1.06 : 1.15;
     const roofSquares = (sqft / stories / 100) * pitchFactor * 1.05;
-    const materials = roofSquares * 247;
-    const labor = roofSquares * 2.1 * 52 * (stories > 1 ? 1.12 : 1);
-    const removal = roofSquares * 72;
-    const details = 850 + 4 * 95 + 650;
+    const materials = roofSquares * 380;
+    const labor = roofSquares * 4.2 * 52 * (stories > 1 ? 1.12 : 1);
+    const removal = roofSquares * 105;
+    const details = 850 + 4 * 95 + 1450;
     const direct = materials + labor + removal + details;
     const overhead = direct * 0.15;
     const contingency = (direct + overhead) * 0.05;
@@ -122,6 +202,32 @@ export default function Home() {
       high: target * 1.18,
     };
   }, [pitch, sqft, stories]);
+
+  const verifiedEstimate = useMemo(() => {
+    const roofSquares = 13.6;
+    const materials = roofSquares * 380;
+    const labor = roofSquares * 4.2 * 52 * 1.12;
+    const removal = roofSquares * 180;
+    const details = 850 + 4 * 95 + 1700 + 7 * 135;
+    const direct = materials + labor + removal + details;
+    const overhead = direct * 0.15;
+    const contingency = (direct + overhead) * 0.03;
+    const cost = direct + overhead + contingency;
+    const target = cost / 0.75;
+    return {
+      roofSquares,
+      materials,
+      labor,
+      removal,
+      details,
+      overhead,
+      contingency,
+      cost,
+      target,
+      low: target * 0.92,
+      high: target * 1.08,
+    };
+  }, []);
 
   const go = (next: View) => {
     setView(next);
@@ -148,6 +254,44 @@ export default function Home() {
   const toggleCompare = (name: string) => setCompare((items) =>
     items.includes(name) ? items.filter((item) => item !== name) : items.length < 2 ? [...items, name] : [items[1], name]
   );
+
+  const openVerification = () => {
+    setVisitContractors(compare.length ? compare : proposals.map((proposal) => proposal.contractor));
+    setVerificationStep(visitsScheduled ? (inspectionReady ? "findings" : "tracking") : "planning");
+    go("verification");
+  };
+
+  const toggleVisitContractor = (name: string) => {
+    setVisitContractors((items) => {
+      if (items.includes(name)) return items.filter((item) => item !== name);
+      if (items.length < 2) return [...items, name];
+      setNotice("Choose no more than two contractors for on-site verification.");
+      setTimeout(() => setNotice(""), 4000);
+      return items;
+    });
+  };
+
+  const scheduleVisits = () => {
+    if (!visitConsent || !visitContractors.length) return;
+    setVisitsScheduled(true);
+    setStage(5);
+    setVerificationStep("tracking");
+    setNotice(`Demo visits requested for ${visitContractors.length} contractor${visitContractors.length === 1 ? "" : "s"}. Nothing was sent externally.`);
+    setTimeout(() => setNotice(""), 4000);
+  };
+
+  const loadInspectionResults = () => {
+    setInspectionReady(true);
+    setVerificationStep("findings");
+    setNotice("Completed demo inspection reports are ready for review.");
+    setTimeout(() => setNotice(""), 4000);
+  };
+
+  const requestVerificationClarification = (name: string) => {
+    setClarifications((items) => items.includes(name) ? items : [...items, name]);
+    setNotice(`Clarification checklist prepared for ${name}. Nothing was sent externally.`);
+    setTimeout(() => setNotice(""), 4000);
+  };
 
   return (
     <div className="app-shell">
@@ -179,6 +323,9 @@ export default function Home() {
           <button className={view === "sharing" || view === "proposals" ? "active" : ""} onClick={() => go(requestsSent ? "proposals" : "sharing")}>
             <span>05</span> Requests & proposals
           </button>
+          <button className={view === "verification" ? "active" : ""} onClick={openVerification}>
+            <span>06</span> On-site verification
+          </button>
         </nav>
 
         <div className="sidebar-foot">
@@ -191,11 +338,11 @@ export default function Home() {
         <header className="topbar">
           <div>
             <span className="mobile-brand">HUM</span>
-            <span className="project-status"><i /> {requestsSent ? "Contractor review active" : "Preliminary scope ready"}</span>
+            <span className="project-status"><i /> {preferredContractor ? "Preferred contractor selected" : inspectionReady ? "Verified scope ready" : visitsScheduled ? "Site visits scheduled" : requestsSent ? "Contractor review active" : "Preliminary scope ready"}</span>
           </div>
           <div className="top-actions">
             <button className="text-button">Save draft</button>
-            <button className="primary-button" onClick={() => go(requestsSent ? "proposals" : "matches")}>{requestsSent ? "Review proposals" : "Find contractors"}</button>
+            <button className="primary-button" onClick={() => inspectionReady || visitsScheduled ? openVerification() : go(requestsSent ? "proposals" : "matches")}>{inspectionReady ? "Review verified scope" : visitsScheduled ? "Track site visits" : requestsSent ? "Review proposals" : "Find contractors"}</button>
           </div>
         </header>
 
@@ -230,15 +377,16 @@ export default function Home() {
               </section>
 
               <section className="section-block">
-                <div className="section-title"><div><span className="eyebrow">What happens next</span><h2>From questions to a qualified contractor</h2></div><span className="step-count">Step {stage} of 4</span></div>
+                <div className="section-title"><div><span className="eyebrow">What happens next</span><h2>From questions to a verified scope</h2></div><span className="step-count">Step {stage} of 5</span></div>
                 <div className="timeline">
                   {[
                     ["Project intake", "Complete", "Your core property and roof details are structured."],
                     ["Review intelligence", stage > 2 ? "Complete" : "Current", "Confirm the assumptions HUM used before anything is shared."],
                     ["Choose matches", stage > 3 ? "Complete" : "Next", "Compare qualified contractors using clear fit reasons."],
                     ["Compare proposals", stage > 4 ? "Complete" : "Next", "Normalize pricing, exclusions, warranties, and risk before deciding."],
+                    ["Verify on site", inspectionReady ? "Complete" : stage === 5 ? "Current" : "Next", "Replace remote assumptions with documented field findings."],
                   ].map(([title, label, copy], index) => (
-                    <button key={title} className={`timeline-item ${index + 1 === stage ? "current" : ""}`} onClick={() => { setStage(index + 1); if (index === 1) go("intelligence"); if (index === 2) go("matches"); if (index === 3) go(requestsSent ? "proposals" : "sharing"); }}>
+                    <button key={title} className={`timeline-item ${index + 1 === stage && !(index === 4 && inspectionReady) ? "current" : ""}`} onClick={() => { setStage(index + 1); if (index === 1) go("intelligence"); if (index === 2) go("matches"); if (index === 3) go(requestsSent ? "proposals" : "sharing"); if (index === 4) openVerification(); }}>
                       <span className="timeline-number">{index + 1}</span>
                       <span><small>{label}</small><strong>{title}</strong><p>{copy}</p></span>
                     </button>
@@ -397,7 +545,7 @@ export default function Home() {
                 <div className="complete"><span>1</span><strong>Requests shared</strong><small>Project packet approved</small></div>
                 <div className="complete"><span>2</span><strong>Proposals normalized</strong><small>2 offers received</small></div>
                 <div className="current"><span>3</span><strong>Compare and clarify</strong><small>Current step</small></div>
-                <div><span>4</span><strong>On-site verification</strong><small>Required before agreement</small></div>
+                <div className={visitsScheduled ? "complete" : ""}><span>4</span><strong>On-site verification</strong><small>{visitsScheduled ? "Visits in progress" : "Required before agreement"}</small></div>
               </section>
 
               <section className="proposal-list section-block">
@@ -427,8 +575,239 @@ export default function Home() {
                 </section>
               )}
 
-              <section className="decision-note section-block"><div><span className="eyebrow light">HUM recommendation</span><h2>Do not accept either proposal yet.</h2></div><div><p>Both offers still contain terms that could change the final cost. Request the missing material specifications, permit responsibility, and written change-order rates before an on-site visit.</p><button onClick={() => setNotice("Clarification checklist prepared for both contractors.")}>Prepare clarification checklist <span>→</span></button></div></section>
-              <div className="bottom-actions"><button className="secondary-button" onClick={() => go("sharing")}>Review shared packet</button><button className="primary-button" onClick={() => setNotice("On-site verification is the next planned development round.")}>Plan site visits</button></div>
+              <section className="decision-note section-block"><div><span className="eyebrow light">HUM recommendation</span><h2>Do not accept either proposal yet.</h2></div><div><p>Both offers still contain terms that could change the final cost. Advance one or two contractors to a documented site visit, then compare their revised scopes against the same field record.</p><button onClick={() => { proposals.forEach((proposal) => requestVerificationClarification(proposal.contractor)); }}>Prepare clarification checklist <span>→</span></button></div></section>
+              <div className="bottom-actions"><button className="secondary-button" onClick={() => go("sharing")}>Review shared packet</button><button className="primary-button" disabled={!compare.length} onClick={openVerification}>Plan site visits ({compare.length})</button></div>
+            </>
+          )}
+
+          {view === "verification" && (
+            <>
+              <section className="page-heading split-heading verification-heading">
+                <div>
+                  <span className="eyebrow copper">On-site verification</span>
+                  <h1>Turn assumptions into field-checked facts.</h1>
+                  <p>Advance up to two contractors, control what is revealed for the visit, and see exactly how verified conditions change scope and price.</p>
+                </div>
+                <div className={`verification-state ${inspectionReady ? "ready" : ""}`}>
+                  <span>{inspectionReady ? "Field record complete" : visitsScheduled ? "Visits scheduled" : "Planning visits"}</span>
+                  <strong>{inspectionReady ? "8 findings" : `${visitContractors.length} contractor${visitContractors.length === 1 ? "" : "s"}`}</strong>
+                  <small>{inspectionReady ? "6 verified · 2 unresolved" : "No real appointments are created"}</small>
+                </div>
+              </section>
+
+              <nav className="verification-tabs" aria-label="Verification workflow">
+                {([
+                  ["planning", "1", "Plan visits"],
+                  ["tracking", "2", "Track visits"],
+                  ["findings", "3", "Review findings"],
+                  ["revised", "4", "Revised proposals"],
+                ] as [VerificationStep, string, string][]).map(([key, number, label]) => {
+                  const disabled = key === "tracking" ? !visitsScheduled : (key === "findings" || key === "revised") ? !inspectionReady : false;
+                  return (
+                    <button key={key} className={verificationStep === key ? "active" : ""} disabled={disabled} onClick={() => setVerificationStep(key)}>
+                      <span>{number}</span>{label}
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {verificationStep === "planning" && (
+                <>
+                  <section className="verification-planning">
+                    <div className="visit-builder">
+                      <div className="section-title">
+                        <div><span className="eyebrow">Contractor advancement</span><h2>Choose who verifies the project</h2></div>
+                        <span className="step-count">{visitContractors.length}/2 selected</span>
+                      </div>
+                      <div className="advance-list">
+                        {proposals.map((proposal) => {
+                          const selected = visitContractors.includes(proposal.contractor);
+                          return (
+                            <button key={proposal.contractor} className={`advance-card ${selected ? "selected" : ""}`} onClick={() => toggleVisitContractor(proposal.contractor)} aria-pressed={selected}>
+                              <span className="contractor-avatar">{proposal.initials}</span>
+                              <span><strong>{proposal.contractor}</strong><small>{money(proposal.total)} preliminary proposal · {proposal.fit}% project fit</small></span>
+                              <b>{selected ? "Advanced ✓" : "Advance"}</b>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="visit-windows">
+                        <span className="eyebrow">Available windows</span>
+                        <h3>Choose one window per contractor</h3>
+                        {proposals.filter((proposal) => visitContractors.includes(proposal.contractor)).map((proposal) => (
+                          <label key={proposal.contractor}>
+                            <span><strong>{proposal.contractor}</strong><small>Two-hour arrival window · fictional demo</small></span>
+                            <select value={visitWindows[proposal.contractor]} onChange={(event) => setVisitWindows((items) => ({ ...items, [proposal.contractor]: event.target.value }))}>
+                              {visitWindowOptions.map((window) => <option key={window}>{window}</option>)}
+                            </select>
+                          </label>
+                        ))}
+                        {!visitContractors.length && <p className="inline-empty">Advance at least one contractor to choose a visit window.</p>}
+                      </div>
+                    </div>
+
+                    <aside className="visit-privacy">
+                      <span className="eyebrow light">Privacy checkpoint</span>
+                      <h2>Information needed for the visit</h2>
+                      <p>Round 4 kept identity and the exact address private. A site visit requires a limited, explicit release.</p>
+                      <div className="privacy-release">
+                        <div><span>Shared for this visit</span><strong>Fictional demo service address</strong><small>Exact location, selected window, exterior access notes, and “Demo homeowner” display name</small></div>
+                        <div className="locked"><span>Still private</span><strong>Direct contact information</strong><small>Personal phone, personal email, payment details, and unapproved interior photos</small></div>
+                      </div>
+                      <label className="visit-consent">
+                        <input type="checkbox" checked={visitConsent} onChange={(event) => setVisitConsent(event.target.checked)} />
+                        <span>I reviewed the visit packet and approve this limited release to the selected fictional contractors.</span>
+                      </label>
+                      <button className="schedule-button" disabled={!visitConsent || !visitContractors.length} onClick={scheduleVisits}>
+                        Schedule demo visit{visitContractors.length === 1 ? "" : "s"} <span>→</span>
+                      </button>
+                      <small className="demo-note">Demo only · no address, identity, or appointment leaves HUM</small>
+                    </aside>
+                  </section>
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => go("proposals")}>Back to proposals</button>{visitsScheduled && <button className="primary-button" onClick={() => setVerificationStep("tracking")}>Track scheduled visits</button>}</div>
+                </>
+              )}
+
+              {verificationStep === "tracking" && (
+                <>
+                  <section className="tracking-intro">
+                    <div><span className="eyebrow">Visit activity</span><h2>{inspectionReady ? "Both demo reports are ready." : "Track every visit from request to results."}</h2></div>
+                    <p>{inspectionReady ? "Each contractor completed the same structured field checklist, allowing HUM to reconcile their findings." : "These appointments are simulated. Load the completed demo visits to continue through the full verification workflow."}</p>
+                  </section>
+
+                  <section className="visit-tracker-list">
+                    {proposals.filter((proposal) => visitContractors.includes(proposal.contractor)).map((proposal) => {
+                      const completedSteps = inspectionReady ? 4 : 2;
+                      return (
+                        <article className="visit-tracker" key={proposal.contractor}>
+                          <div className="tracker-head">
+                            <div className="proposal-id"><span>{proposal.initials}</span><div><h3>{proposal.contractor}</h3><small>{visitWindows[proposal.contractor]}</small></div></div>
+                            <span className={`tracker-status ${inspectionReady ? "complete" : ""}`}>{inspectionReady ? "Results ready" : "Scheduled"}</span>
+                          </div>
+                          <div className="visit-status-line">
+                            {["Requested", "Scheduled", "Completed", "Results ready"].map((label, index) => (
+                              <div className={index < completedSteps ? "done" : index === completedSteps ? "current" : ""} key={label}>
+                                <span>{index < completedSteps ? "✓" : index + 1}</span><strong>{label}</strong>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="tracker-detail">
+                            <span><small>Visit access</small><strong>Exterior + attic hatch</strong></span>
+                            <span><small>Inspection form</small><strong>8 structured fields</strong></span>
+                            <span><small>Photo evidence</small><strong>{inspectionReady ? "14 tagged photos" : "Awaiting visit"}</strong></span>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </section>
+
+                  {!inspectionReady ? (
+                    <section className="simulation-card">
+                      <div><span className="eyebrow light">Demo time jump</span><h2>Continue with completed site visits.</h2><p>This loads fictional inspection results for the sample project so you can test reconciliation and revised pricing.</p></div>
+                      <button onClick={loadInspectionResults}>Load completed demo visits <span>→</span></button>
+                    </section>
+                  ) : (
+                    <div className="bottom-actions"><button className="secondary-button" onClick={() => setVerificationStep("planning")}>Review visit details</button><button className="primary-button" onClick={() => setVerificationStep("findings")}>Review field findings</button></div>
+                  )}
+                </>
+              )}
+
+              {verificationStep === "findings" && (
+                <>
+                  <section className="field-record-heading">
+                    <div><span className="eyebrow copper">Consolidated field record</span><h2>One verified scope, with evidence and limits.</h2><p>HUM reconciled both fictional contractor reports. A “field verified” label means the item was observable on site, not that concealed conditions are guaranteed.</p></div>
+                    <div className="evidence-summary"><strong>2</strong><span>reports reconciled</span><strong>14</strong><span>tagged demo photos</span></div>
+                  </section>
+
+                  <section className="finding-grid">
+                    {inspectionFacts.map((fact) => (
+                      <article key={fact.label}>
+                        <span className={`finding-status ${fact.status === "Field verified" ? "verified" : fact.status === "Still conditional" ? "conditional" : "clarify"}`}>{fact.status}</span>
+                        <small>{fact.label}</small>
+                        <strong>{fact.value}</strong>
+                        <p>{fact.note}</p>
+                      </article>
+                    ))}
+                  </section>
+
+                  <section className="assumption-reconciliation section-block">
+                    <div className="section-title"><div><span className="eyebrow">Assumption reconciliation</span><h2>What changed after the visit</h2></div><span className="step-count">Every price change stays traceable</span></div>
+                    <div className="reconcile-row reconcile-head"><span>Scope item</span><span>Before visit</span><span>Field finding</span><span>Effect</span></div>
+                    {[
+                      ["Measured roof area", `${estimate.roofSquares.toFixed(1)} squares`, "13.6 squares", `+${(13.6 - estimate.roofSquares).toFixed(1)} squares measured`],
+                      ["Existing layers", "One visible layer", "Two asphalt layers", "Second tear-off added"],
+                      ["Decking repair", "4-sheet allowance", "7-sheet allowance", "3 more sheets carried"],
+                      ["Chimney flashing", "Repair allowance", "Full replacement", "Scope made explicit"],
+                      ["Permit", "$350 allowance", "Contractor obtains permit", "Fee included"],
+                      ["Ventilation", "4 penetrations", "4 box vents + intake review", "One design check remains"],
+                    ].map((row) => <div className="reconcile-row" key={row[0]}>{row.map((cell, index) => <span data-label={["Scope item", "Before", "Finding", "Effect"][index]} key={cell}>{cell}</span>)}</div>)}
+                  </section>
+
+                  <section className="unknowns-card section-block">
+                    <div><span className="eyebrow light">Remaining uncertainty</span><h2>Three items still cannot be guaranteed.</h2><p>Round 5 reduces uncertainty; it does not pretend a visual inspection can reveal every concealed condition.</p></div>
+                    <ul><li>Decking beyond the 7-sheet allowance after tear-off</li><li>Hidden sheathing directly beneath the chimney flashing</li><li>Weather-driven changes to material delivery and start date</li></ul>
+                  </section>
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setVerificationStep("tracking")}>Back to visit tracking</button><button className="primary-button" onClick={() => setVerificationStep("revised")}>See recalculated scope and offers</button></div>
+                </>
+              )}
+
+              {verificationStep === "revised" && (
+                <>
+                  <section className="verified-price-card">
+                    <div><span className="eyebrow">Original HUM planning figure</span><strong>{money(estimate.target)}</strong><small>{money(estimate.low)}–{money(estimate.high)} preliminary range</small></div>
+                    <span className="price-arrow">→</span>
+                    <div className="verified-total"><span className="eyebrow light">Field-verified planning figure</span><strong>{money(verifiedEstimate.target)}</strong><small>{money(verifiedEstimate.low)}–{money(verifiedEstimate.high)} verified range</small></div>
+                    <div className="price-change"><span>Explained change</span><strong>+{money(verifiedEstimate.target - estimate.target)}</strong><small>Driven by measured area, second-layer removal, decking, and finalized flashing scope</small></div>
+                  </section>
+
+                  <section className="verified-cost-model section-block">
+                    <div className="section-title"><div><span className="eyebrow">Recalculated economics</span><h2>Where the verified figure comes from</h2></div><span className="step-count">25% target gross margin</span></div>
+                    <div className="verified-cost-head"><span>Cost category</span><span>Preliminary</span><span>Verified</span><span>Why it changed</span></div>
+                    {[
+                      { name: "Materials", original: estimate.materials, verified: verifiedEstimate.materials, note: "13.6 measured squares" },
+                      { name: "Labor", original: estimate.labor, verified: verifiedEstimate.labor, note: "Measured area and two-story handling" },
+                      { name: "Removal & disposal", original: estimate.removal, verified: verifiedEstimate.removal, note: "Two confirmed roofing layers" },
+                      { name: "Details & repairs", original: estimate.details, verified: verifiedEstimate.details, note: "7-sheet allowance and full flashing" },
+                      { name: "Operating overhead", original: estimate.overhead, verified: verifiedEstimate.overhead, note: "15% of revised direct cost" },
+                      { name: "Risk allowance", original: estimate.contingency, verified: verifiedEstimate.contingency, note: "Reduced to 3% after inspection" },
+                    ].map((row) => (
+                      <div className="verified-cost-row" key={row.name}>
+                        <strong>{row.name}</strong><span>{money(row.original)}</span><span>{money(row.verified)}</span><small>{row.note}</small>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="revised-offers section-block">
+                    <div className="section-title"><div><span className="eyebrow">Revised proposals</span><h2>Same field record, standardized again</h2></div><span className="step-count">Final terms are still nonbinding</span></div>
+                    <div className="revised-offer-list">
+                      {proposals.filter((proposal) => visitContractors.includes(proposal.contractor)).map((proposal) => (
+                        <article className={`revised-offer ${preferredContractor === proposal.contractor ? "preferred" : ""}`} key={proposal.contractor}>
+                          <div className="revised-offer-head">
+                            <div className="proposal-id"><span>{proposal.initials}</span><div><h3>{proposal.contractor}</h3><small>Revised after fictional site visit</small></div></div>
+                            <div><span>Revised total</span><strong>{money(proposal.revisedTotal)}</strong><small>{proposal.revisedTotal > proposal.total ? `+${money(proposal.revisedTotal - proposal.total)} from preliminary` : "No increase"}</small></div>
+                          </div>
+                          <div className="revised-meta"><span><small>Duration</small><strong>{proposal.revisedTimeline}</strong></span><span><small>Start window</small><strong>{proposal.revisedStart}</strong></span><span><small>Workmanship</small><strong>{proposal.warranty}</strong></span></div>
+                          <div className="offer-detail-columns">
+                            <div><span className="eyebrow">Verified scope changes</span>{proposal.scopeChanges.map((change) => <p key={change}>✓ {change}</p>)}</div>
+                            <div className="open-terms"><span className="eyebrow">Still needs agreement</span>{proposal.openTerms.map((term) => <p key={term}>• {term}</p>)}</div>
+                          </div>
+                          <div className="offer-actions">
+                            <button className={preferredContractor === proposal.contractor ? "chosen" : "secondary-button"} onClick={() => { setPreferredContractor(proposal.contractor); setNotice(`${proposal.contractor} marked preferred. No agreement has been accepted.`); setTimeout(() => setNotice(""), 4000); }}>{preferredContractor === proposal.contractor ? "Preferred ✓" : "Mark preferred"}</button>
+                            <button className="link-button" onClick={() => requestVerificationClarification(proposal.contractor)}>{clarifications.includes(proposal.contractor) ? "Clarification prepared ✓" : "Prepare clarification"}</button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="verified-scope-banner section-block">
+                    <div><span className="eyebrow light">Round 5 complete</span><h2>Verified scope ready.</h2><p>Field conditions, revised economics, and remaining unknowns are documented in one decision record.</p></div>
+                    <div><strong>Final terms still require homeowner and contractor approval.</strong><span>No contract, signature, payment, or real message has been created.</span></div>
+                  </section>
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setVerificationStep("findings")}>Back to findings</button><button className="primary-button" disabled={!preferredContractor} onClick={() => setNotice("Agreement readiness is planned for Round 6.")}>{preferredContractor ? "Continue to agreement readiness" : "Choose a preferred contractor"}</button></div>
+                </>
+              )}
             </>
           )}
         </div>
