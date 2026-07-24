@@ -1,22 +1,29 @@
 # HUM Roofing Intelligence
 
-HUM is a privacy-first homeowner workspace for understanding a roofing project, reviewing nonbinding cost guidance, comparing contractor proposals, and documenting on-site verification before any agreement.
+HUM is a secure roofing-intelligence workspace for Humboldt County homeowners. The official product sequence is locked to the HUM roadmap. This repository currently implements the recovered **Round 3 foundation**; later marketplace, agreement, and construction screens are preserved at `/prototypes` but do not count as completed roadmap rounds.
 
-The current build includes development Rounds 1–5:
+## What Round 3 includes
 
-1. Preliminary roofing intake and planning range
-2. Transparent roof intelligence and cost assumptions
-3. Project workspace and contractor matching
-4. Homeowner-controlled sharing and normalized proposals
-5. On-site visit planning, field findings, verified cost reconciliation, and revised proposals
+- Email registration, sign-in, sign-out, and password recovery
+- Separate homeowner, contractor, and administrator roles
+- Server-enforced row-level security for every product table
+- Multiple persistent projects per homeowner with archive-not-delete behavior
+- Private project-photo storage with expiring signed previews
+- Structured server-side OpenAI intake with validation, timeout, rate limiting, metadata-only request logs, and deterministic fallback
+- A deterministic estimate engine that keeps AI out of monetary calculations
+- Immutable, versioned Humboldt County pricing catalogs
+- Reproducible estimate versions that retain their inputs, outputs, confidence, missing information, and pricing version
+- Explicit project sharing to one existing contractor account at a time
+- Separate contractor corrections and pricing observations
+- Administrator review, role, pricing-version, AI-health, and audit controls
 
-All names, addresses, appointments, inspection findings, and contractor offers in this public demo are fictional. The interface does not contact real contractors, create appointments, accept agreements, or collect payments.
+Round 3 does **not** activate a marketplace, contractor bidding, payments, agreements, external messaging, reviews, multiple trades, or a public Humboldt launch.
 
-## Run locally on macOS
+## Update and run on macOS
 
 ```bash
 cd ~/Downloads/hum-roofing-intelligence
-git pull origin main
+git pull --ff-only origin main
 npm install
 npm run dev -- --open
 ```
@@ -27,113 +34,144 @@ If the browser does not open automatically:
 open http://localhost:5173
 ```
 
-Keep the Terminal window running while using the local app.
+The public Supabase URL and publishable browser key are safe client configuration and are included in the app. The local app still works without an OpenAI key by using its deterministic intake fallback. To exercise live OpenAI intake locally, copy `.env.example` to `.env.local` and add your own server-side `OPENAI_API_KEY`. Never commit `.env.local`.
 
-## Technical base
+## Architecture
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+| Layer | Responsibility |
+|---|---|
+| Supabase Auth | Account sessions and password recovery |
+| PostgreSQL RLS | Project ownership, contractor sharing, administrator access, and role enforcement |
+| Supabase Storage | Private JPEG, PNG, and WebP project photos up to 8 MB |
+| OpenAI Responses API | Structured interpretation of homeowner language only |
+| Deterministic estimate engine | All quantities, costs, overhead, contingency, and planning-price calculations |
+| Versioned pricing | Region, effective date, sources, confidence, approval, and immutable history |
+| Audit tables | Security-relevant record changes and metadata-only AI request health |
 
-## Prerequisites
+The browser never receives the OpenAI key. API routes verify the bearer session with Supabase before accessing a project. Approved pricing rows cannot be edited; administrators clone them into a proposed version and explicitly approve the new version.
+
+## Local setup from a fresh clone
+
+Prerequisites:
 
 - Node.js `>=22.13.0`
-- Linux with `flock`, `curl`, and GNU `timeout`
+- npm
+- Supabase CLI dependencies if you want a fully local database
 
-## Sites Lifecycle
+Install and start the app:
 
-The Sites lifecycle CLI runs the locked dependency install before returning this checkout. Edit the source under `app/`, then checkpoint when a coherent milestone is ready to inspect or share. The remote Sites builder runs `npm run build` against the pushed commit. Do not repeat install or build as a normal pre-checkpoint step.
-
-This starter does not use `wrangler.jsonc`.
-
-`install:ci` is intentionally a single, non-retrying `npm ci`. It refuses a concurrent install for the same project, consumes a matching image-seeded npm cache with `--prefer-offline` while retaining registry fallback for a missing cache object, otherwise downloads and verifies the complete vinext tarball recorded in `package-lock.json`, limits npm to one socket, and terminates a stalled install. `build` applies a short timeout and then validates the Sites artifact. These helpers target Linux and use GNU `timeout`; they are not native macOS scripts.
-
-Scripts that need writable project-scoped home, npm, XDG, and temporary paths use `scripts/sites-env.sh`. The `dev` and `start` scripts honor the caller's runtime environment and keep Wrangler logs inside the checkout. The generated `.sites-runtime/` directory is disposable and ignored by Git.
-
-## Included Shape
-
-- edit site code under `app/`
-- `app/chatgpt-auth.ts` provides optional dispatch-owned ChatGPT sign-in helpers
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/index.ts` reads the D1 binding from the Cloudflare Worker environment
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```bash
+npm install
+npm run dev
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+Optional local environment:
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
+```bash
+cp .env.example .env.local
+```
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
+Add an OpenAI API key only if you need to test the live interpreter. Keep it server-side.
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
+## Database setup
 
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
+The canonical schema is:
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
+```text
+supabase/migrations/20260724191417_secure_intelligence_foundation.sql
+```
 
-## Diagnostic Commands
+Apply migrations with the Supabase CLI when the project is linked:
 
-- `npm run install:ci`: perform the one bounded lockfile install
-- `npm run dev`: start the Vite/Vinext development server
-- `npm run build`: build and validate the deployable Sites artifact
-- `npm run start`: start the built Vinext application
-- `npm test`: build, validate, and verify the rendered development-preview metadata
-- `npm run validate:artifact`: recheck an existing artifact's manifest and ESM `default.fetch` export
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+```bash
+npx supabase db push
+```
 
-Use build and validation commands for targeted diagnosis after a remote failure, not as part of the normal checkpoint path.
+For a disposable local Supabase stack:
 
-The timeout defaults can be overridden for a controlled canary with `SITES_INSTALL_TIMEOUT`, `SITES_INSTALL_KILL_AFTER`, `SITES_BUILD_TIMEOUT`, and `SITES_BUILD_KILL_AFTER`. A timeout fails the command; the helpers never retry an unchanged install or build.
+```bash
+npx supabase start
+npx supabase db reset
+```
 
-## Learn More
+The migration is repeatable through a clean reset and creates:
 
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+- product enums and tables
+- indexes and explicit grants
+- signup/profile and audit triggers
+- authorization helper functions and RPCs
+- row-level security policies
+- a private `project-photos` bucket and storage policies
+- the first approved Humboldt County roofing pricing version
+
+The hosted HUM project is isolated from every other business or Supabase project.
+
+## Pricing and estimate reproducibility
+
+The seeded baseline is `HUM-HC-ROOF-2026.07-BASELINE`. Every pricing row records a unit, low/expected/high values, source, source URL when applicable, verification date, confidence, and change note.
+
+Every generated estimate stores:
+
+- the homeowner facts used at that moment
+- the AI interpretation, if any
+- the exact pricing version ID and normalized pricing inputs
+- low, expected, and high calculation results
+- confidence and missing-information lists
+- the deterministic calculation audit
+
+Regenerating an estimate creates a new immutable estimate version. It does not rewrite an earlier result.
+
+## Security model
+
+- New signup metadata can request only `homeowner` or `contractor`; it can never self-assign `administrator`.
+- Homeowners can create and update only their own projects.
+- Contractors can read only projects with an active explicit share to their authenticated account.
+- Contractors write corrections into separate review records; they cannot overwrite homeowner facts or estimates.
+- Administrators are checked by a server-side database role helper.
+- Project photos are private and use five-minute signed URLs.
+- Storage paths begin with the authenticated homeowner ID and project ID.
+- The OpenAI endpoint permits ten requests per account per hour, validates structured output, times out after 15 seconds, and logs no homeowner narrative.
+- UI visibility is never treated as authorization.
+
+## Verification
+
+Run the complete local verification set:
+
+```bash
+npm run check
+```
+
+Individual commands:
+
+```bash
+npm run lint
+npm run typecheck
+npm run test:unit
+npm run build
+npm run test:rendered
+```
+
+Database security tests live in `supabase/tests/rls_policies.sql`. They verify project isolation, contractor share/revocation behavior, role protection, and administrator visibility in a transaction that rolls back its test records.
+
+## Deployment
+
+The site supports two production build targets:
+
+- OpenAI Sites uses `npm run build` and the project declared in `.openai/hosting.json`.
+- Vercel uses `npm run build:vercel` through `vercel.json` and deploys automatically from GitHub.
+
+Both production environments must define:
+
+```text
+OPENAI_API_KEY       secret
+OPENAI_MODEL         gpt-5.6-luna
+```
+
+The Supabase URL and publishable key may use the defaults in `app/foundation/config.ts` or matching environment values. The Supabase Auth production redirect allowlist must include:
+
+```text
+https://hum-roofing-intelligence.caybedog707.chatgpt.site/**
+https://<production-vercel-domain>/**
+```
+
+The live site remains access-restricted while Round 3 is validated. Round 4 is the roadmap’s real-world pilot and may begin only after every Round 3 exit gate passes.

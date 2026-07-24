@@ -4,13 +4,15 @@ import test from "node:test";
 const developmentPreviewMeta =
   /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
 
-test("renders development preview metadata", async () => {
+async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
+  workerUrl.searchParams.set(
+    "test",
+    `${process.pid}-${Date.now()}-${pathname}`,
+  );
   const { default: worker } = await import(workerUrl.href);
-
-  const response = await worker.fetch(
-    new Request("http://localhost/", {
+  return worker.fetch(
+    new Request(`http://localhost${pathname}`, {
       headers: { accept: "text/html" },
     }),
     {
@@ -23,20 +25,27 @@ test("renders development preview metadata", async () => {
       passThroughOnException() {},
     },
   );
+}
 
+test("renders the secure Round 3 foundation as the primary entry", async () => {
+  const response = await render("/");
   assert.equal(response.status, 200);
-  assert.match(
-    response.headers.get("content-type") ?? "",
-    /^text\/html\b/i,
-  );
+  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+
   const html = await response.text();
   assert.match(html, developmentPreviewMeta);
-  assert.match(html, /On-site verification/i);
-  assert.match(html, /Agreement readiness/i);
-  assert.match(html, /Prepare agreement/i);
-  assert.match(html, /Project launch/i);
-  assert.match(html, /Lock one version, record approvals/i);
+  assert.match(html, /Secure roofing intelligence/i);
+  assert.match(html, /Private by default/i);
+  assert.match(html, /Money stays deterministic/i);
+  assert.match(html, /History stays reproducible/i);
+  assert.match(html, /Create account/i);
+  assert.doesNotMatch(html, /OPENAI_API_KEY/i);
+});
+
+test("preserves later-round screens only on the prototype route", async () => {
+  const response = await render("/prototypes");
+  assert.equal(response.status, 200);
+  const html = await response.text();
   assert.match(html, /Active construction/i);
-  assert.match(html, /Track construction/i);
   assert.match(html, /protected construction/i);
 });
