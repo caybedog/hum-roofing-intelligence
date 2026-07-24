@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 
-type View = "overview" | "intelligence" | "costs" | "matches" | "sharing" | "proposals" | "verification";
+type View = "overview" | "intelligence" | "costs" | "matches" | "sharing" | "proposals" | "verification" | "agreement";
 
 type ShareKey = "scope" | "dimensions" | "location" | "budget" | "photos";
 type VerificationStep = "planning" | "tracking" | "findings" | "revised";
+type AgreementStep = "scope" | "documents" | "terms" | "packet";
 
 const money = (value: number) =>
   new Intl.NumberFormat("en-US", {
@@ -145,6 +146,127 @@ const inspectionFacts = [
   },
 ];
 
+const agreementScopeRows = [
+  {
+    id: "roof-area",
+    item: "Roof quantity",
+    verified: "13.6 measured squares",
+    draft: "13.6 roofing squares",
+    status: "Aligned",
+    tone: "clear",
+    note: "The draft uses the field measurement.",
+  },
+  {
+    id: "tear-off",
+    item: "Existing roof removal",
+    verified: "Remove two asphalt layers",
+    draft: "Two-layer tear-off and disposal",
+    status: "Aligned",
+    tone: "clear",
+    note: "Removal and disposal both appear in the draft.",
+  },
+  {
+    id: "shingle-product",
+    item: "Shingle system",
+    verified: "Architectural system; product selection open",
+    draft: "30-year architectural shingles",
+    status: "Vague",
+    tone: "review",
+    note: "Manufacturer, product line, color, and accessory system are not named.",
+  },
+  {
+    id: "decking-unit",
+    item: "Decking repairs",
+    verified: "7 sheets carried; more remains conditional",
+    draft: "7 sheets included; additional at market rate",
+    status: "Missing",
+    tone: "critical",
+    note: "The unit price and approval method for additional sheets are missing.",
+  },
+  {
+    id: "flashing",
+    item: "Chimney flashing",
+    verified: "Full step and counter-flashing replacement",
+    draft: "Replace chimney flashing system",
+    status: "Aligned",
+    tone: "clear",
+    note: "The draft matches the verified scope.",
+  },
+  {
+    id: "ventilation",
+    item: "Ventilation",
+    verified: "4 box vents plus intake design check",
+    draft: "Reuse 4 box vents; no intake work included",
+    status: "Altered",
+    tone: "critical",
+    note: "The open intake-balance check was converted into an exclusion.",
+  },
+  {
+    id: "cleanup",
+    item: "Protection and cleanup",
+    verified: "Disposal and property protection expected",
+    draft: "Remove debris and leave broom clean",
+    status: "Vague",
+    tone: "review",
+    note: "Landscape protection, daily cleanup, and magnetic nail sweep are not stated.",
+  },
+  {
+    id: "warranty",
+    item: "Workmanship warranty",
+    verified: "10-year workmanship term",
+    draft: "10-year contractor workmanship warranty",
+    status: "Aligned",
+    tone: "clear",
+    note: "The duration matches; exclusions still need to be attached.",
+  },
+];
+
+const contractorDocuments = [
+  {
+    id: "license",
+    title: "Contractor license",
+    evidence: "DEMO-LIC-001 · fictional record",
+    status: "Demo record present",
+    tone: "clear",
+    note: "Name, classification, and status fields are populated for workflow testing only.",
+  },
+  {
+    id: "liability",
+    title: "General liability insurance",
+    evidence: "Fictional certificate · through Dec 31, 2026",
+    status: "Demo record present",
+    tone: "clear",
+    note: "Carrier, policy period, and certificate holder fields are visible; HUM has not contacted a carrier.",
+  },
+  {
+    id: "bond-proof",
+    title: "Bond evidence",
+    evidence: "Carrier named · attachment unreadable",
+    status: "Review",
+    tone: "review",
+    note: "Request a readable document and independently confirm current status.",
+  },
+  {
+    id: "workers-comp",
+    title: "Workers’ compensation",
+    evidence: "No document in demo packet",
+    status: "Missing",
+    tone: "critical",
+    note: "Request current evidence or a valid, project-appropriate explanation before agreement.",
+  },
+];
+
+const negotiationItems = [
+  { id: "shingle-product", label: "Name the shingle manufacturer, product line, accessories, and selected color." },
+  { id: "decking-unit", label: "Insert a fixed unit price and approval process for decking beyond 7 sheets." },
+  { id: "ventilation", label: "Resolve the intake-ventilation design check instead of silently excluding it." },
+  { id: "workers-comp", label: "Provide current workers’ compensation evidence or an applicable explanation." },
+  { id: "bond-proof", label: "Replace the unreadable bond attachment with legible evidence." },
+  { id: "start-window", label: "Replace “after deposit” with a measurable start window and delay notice process." },
+  { id: "cleanup", label: "Define property protection, daily cleanup, final nail sweep, and disposal." },
+  { id: "change-orders", label: "Require written price and schedule approval before changed work begins." },
+];
+
 export default function Home() {
   const [view, setView] = useState<View>("overview");
   const [sqft, setSqft] = useState(2000);
@@ -175,6 +297,10 @@ export default function Home() {
   const [verificationStep, setVerificationStep] = useState<VerificationStep>("planning");
   const [preferredContractor, setPreferredContractor] = useState("");
   const [clarifications, setClarifications] = useState<string[]>([]);
+  const [agreementStep, setAgreementStep] = useState<AgreementStep>("scope");
+  const [resolvedAgreementItems, setResolvedAgreementItems] = useState<string[]>([]);
+  const [agreementConsent, setAgreementConsent] = useState(false);
+  const [packetPrepared, setPacketPrepared] = useState(false);
 
   const estimate = useMemo(() => {
     const pitchFactor = pitch === "Steep" ? 1.28 : pitch === "Low" ? 1.06 : 1.15;
@@ -228,6 +354,27 @@ export default function Home() {
       high: target * 1.08,
     };
   }, []);
+
+  const agreementProposal = proposals.find((proposal) => proposal.contractor === preferredContractor) ?? proposals[0];
+
+  const paymentSchedule = useMemo(() => {
+    const total = agreementProposal.revisedTotal;
+    const deposit = 1000;
+    const materials = Math.round(total * 0.35);
+    const dryIn = Math.round(total * 0.35);
+    const completion = total - deposit - materials - dryIn;
+    return [
+      { milestone: "Scheduling deposit", amount: deposit, trigger: "After both parties approve the final written agreement" },
+      { milestone: "Materials staged", amount: materials, trigger: "Named materials delivered to or documented for the project" },
+      { milestone: "Tear-off and dry-in", amount: dryIn, trigger: "Decking record approved and roof made weather-resistant" },
+      { milestone: "Final completion", amount: completion, trigger: "Final checklist, corrections, cleanup, and closeout documents complete" },
+    ];
+  }, [agreementProposal.revisedTotal]);
+
+  const openAgreementItems = negotiationItems.filter((item) => !resolvedAgreementItems.includes(item.id));
+  const openCriticalItems = openAgreementItems.filter((item) => ["decking-unit", "ventilation", "workers-comp"].includes(item.id));
+  const openReviewItems = openAgreementItems.length - openCriticalItems.length;
+  const readinessScore = Math.max(45, 100 - openCriticalItems.length * 10 - openReviewItems * 3 - (agreementConsent ? 0 : 5));
 
   const go = (next: View) => {
     setView(next);
@@ -293,6 +440,74 @@ export default function Home() {
     setTimeout(() => setNotice(""), 4000);
   };
 
+  const openAgreement = () => {
+    if (!preferredContractor) {
+      setNotice("Round 6 demo is showing Redwood Roofworks as the provisional contractor. Choose a preferred contractor in Round 5 to change it.");
+      setTimeout(() => setNotice(""), 5000);
+    }
+    setAgreementStep(packetPrepared ? "packet" : "scope");
+    go("agreement");
+  };
+
+  const toggleAgreementItem = (id: string) => {
+    setResolvedAgreementItems((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
+  };
+
+  const prepareAgreementPacket = () => {
+    if (!agreementConsent) {
+      setNotice("Review and approve the demo agreement information before preparing the packet.");
+      setTimeout(() => setNotice(""), 4000);
+      return;
+    }
+    setPacketPrepared(true);
+    setStage(6);
+    setAgreementStep("packet");
+    setNotice("Agreement-readiness packet prepared for human review. No contract was signed or sent.");
+    setTimeout(() => setNotice(""), 5000);
+  };
+
+  const downloadAgreementPacket = () => {
+    const lines = [
+      "HUM AGREEMENT-READINESS PACKET",
+      "Fictional demonstration · Not a contract or legal advice",
+      "",
+      `Preferred contractor: ${agreementProposal.contractor}`,
+      `Verified proposal total: ${money(agreementProposal.revisedTotal)}`,
+      `Readiness score: ${readinessScore}/100`,
+      `Open critical items: ${openCriticalItems.length}`,
+      `Open review items: ${openReviewItems}`,
+      "",
+      "SCOPE AUDIT",
+      ...agreementScopeRows.map((row) => `${row.status.toUpperCase()} · ${row.item}: ${row.draft} | ${row.note}`),
+      "",
+      "CONTRACTOR EVIDENCE",
+      ...contractorDocuments.map((document) => `${document.status.toUpperCase()} · ${document.title}: ${document.evidence} | ${document.note}`),
+      "",
+      "PAYMENT MILESTONES",
+      ...paymentSchedule.map((payment) => `${payment.milestone}: ${money(payment.amount)} | ${payment.trigger}`),
+      "",
+      "NEGOTIATION CHECKLIST",
+      ...negotiationItems.map((item) => `${resolvedAgreementItems.includes(item.id) ? "[CLARIFIED IN DEMO]" : "[OPEN]"} ${item.label}`),
+      "",
+      "PRIVATE INFORMATION REVIEW",
+      "Included: fictional demo homeowner name and fictional demo service address.",
+      "Excluded: personal phone, personal email, payment details, and unapproved interior photos.",
+      "",
+      "Agreement packet ready for human review—no binding contract has been signed.",
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "HUM-agreement-readiness-packet.txt";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setNotice("Demo readiness packet downloaded. It is not a contract.");
+    setTimeout(() => setNotice(""), 4000);
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -326,6 +541,9 @@ export default function Home() {
           <button className={view === "verification" ? "active" : ""} onClick={openVerification}>
             <span>06</span> On-site verification
           </button>
+          <button className={view === "agreement" ? "active" : ""} onClick={openAgreement}>
+            <span>07</span> Agreement readiness
+          </button>
         </nav>
 
         <div className="sidebar-foot">
@@ -338,11 +556,11 @@ export default function Home() {
         <header className="topbar">
           <div>
             <span className="mobile-brand">HUM</span>
-            <span className="project-status"><i /> {preferredContractor ? "Preferred contractor selected" : inspectionReady ? "Verified scope ready" : visitsScheduled ? "Site visits scheduled" : requestsSent ? "Contractor review active" : "Preliminary scope ready"}</span>
+            <span className="project-status"><i /> {packetPrepared ? "Agreement packet ready" : view === "agreement" ? "Agreement review in progress" : preferredContractor ? "Preferred contractor selected" : inspectionReady ? "Verified scope ready" : visitsScheduled ? "Site visits scheduled" : requestsSent ? "Contractor review active" : "Preliminary scope ready"}</span>
           </div>
           <div className="top-actions">
             <button className="text-button">Save draft</button>
-            <button className="primary-button" onClick={() => inspectionReady || visitsScheduled ? openVerification() : go(requestsSent ? "proposals" : "matches")}>{inspectionReady ? "Review verified scope" : visitsScheduled ? "Track site visits" : requestsSent ? "Review proposals" : "Find contractors"}</button>
+            <button className="primary-button" onClick={() => packetPrepared || preferredContractor || view === "agreement" ? openAgreement() : inspectionReady || visitsScheduled ? openVerification() : go(requestsSent ? "proposals" : "matches")}>{packetPrepared ? "Review readiness packet" : preferredContractor || view === "agreement" ? "Continue agreement review" : inspectionReady ? "Review verified scope" : visitsScheduled ? "Track site visits" : requestsSent ? "Review proposals" : "Find contractors"}</button>
           </div>
         </header>
 
@@ -377,7 +595,7 @@ export default function Home() {
               </section>
 
               <section className="section-block">
-                <div className="section-title"><div><span className="eyebrow">What happens next</span><h2>From questions to a verified scope</h2></div><span className="step-count">Step {stage} of 5</span></div>
+                <div className="section-title"><div><span className="eyebrow">What happens next</span><h2>From questions to an agreement-ready packet</h2></div><span className="step-count">Step {stage} of 6</span></div>
                 <div className="timeline">
                   {[
                     ["Project intake", "Complete", "Your core property and roof details are structured."],
@@ -385,8 +603,9 @@ export default function Home() {
                     ["Choose matches", stage > 3 ? "Complete" : "Next", "Compare qualified contractors using clear fit reasons."],
                     ["Compare proposals", stage > 4 ? "Complete" : "Next", "Normalize pricing, exclusions, warranties, and risk before deciding."],
                     ["Verify on site", inspectionReady ? "Complete" : stage === 5 ? "Current" : "Next", "Replace remote assumptions with documented field findings."],
+                    ["Prepare agreement", packetPrepared ? "Complete" : stage === 6 ? "Current" : "Next", "Audit the final scope, evidence, payment terms, and protections."],
                   ].map(([title, label, copy], index) => (
-                    <button key={title} className={`timeline-item ${index + 1 === stage && !(index === 4 && inspectionReady) ? "current" : ""}`} onClick={() => { setStage(index + 1); if (index === 1) go("intelligence"); if (index === 2) go("matches"); if (index === 3) go(requestsSent ? "proposals" : "sharing"); if (index === 4) openVerification(); }}>
+                    <button key={title} className={`timeline-item ${index + 1 === stage && !((index === 4 && inspectionReady) || (index === 5 && packetPrepared)) ? "current" : ""}`} onClick={() => { setStage(index + 1); if (index === 1) go("intelligence"); if (index === 2) go("matches"); if (index === 3) go(requestsSent ? "proposals" : "sharing"); if (index === 4) openVerification(); if (index === 5) openAgreement(); }}>
                       <span className="timeline-number">{index + 1}</span>
                       <span><small>{label}</small><strong>{title}</strong><p>{copy}</p></span>
                     </button>
@@ -805,7 +1024,245 @@ export default function Home() {
                     <div><span className="eyebrow light">Round 5 complete</span><h2>Verified scope ready.</h2><p>Field conditions, revised economics, and remaining unknowns are documented in one decision record.</p></div>
                     <div><strong>Final terms still require homeowner and contractor approval.</strong><span>No contract, signature, payment, or real message has been created.</span></div>
                   </section>
-                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setVerificationStep("findings")}>Back to findings</button><button className="primary-button" disabled={!preferredContractor} onClick={() => setNotice("Agreement readiness is planned for Round 6.")}>{preferredContractor ? "Continue to agreement readiness" : "Choose a preferred contractor"}</button></div>
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setVerificationStep("findings")}>Back to findings</button><button className="primary-button" disabled={!preferredContractor} onClick={openAgreement}>{preferredContractor ? "Continue to agreement readiness" : "Choose a preferred contractor"}</button></div>
+                </>
+              )}
+            </>
+          )}
+
+          {view === "agreement" && (
+            <>
+              <section className="page-heading split-heading agreement-heading">
+                <div>
+                  <span className="eyebrow copper">Agreement readiness</span>
+                  <h1>Protect the project before anyone signs.</h1>
+                  <p>HUM compares the fictional contractor draft against the verified scope, checks supporting evidence, and turns unresolved terms into a clear negotiation list.</p>
+                </div>
+                <div className="readiness-meter" aria-label={`${readinessScore} out of 100 agreement readiness`}>
+                  <strong>{readinessScore}</strong>
+                  <span>readiness score</span>
+                  <small>{openCriticalItems.length} critical · {openReviewItems} review</small>
+                </div>
+              </section>
+
+              <section className="agreement-contractor">
+                <div className="proposal-id">
+                  <span>{agreementProposal.initials}</span>
+                  <div><h3>{agreementProposal.contractor}</h3><small>{preferredContractor ? "Preferred in Round 5" : "Provisional Round 6 demo selection"}</small></div>
+                </div>
+                <div><span>Verified proposal</span><strong>{money(agreementProposal.revisedTotal)}</strong></div>
+                <div><span>Draft status</span><strong>Human review required</strong></div>
+                <div className="nonbinding-pill">Fictional · nonbinding</div>
+              </section>
+
+              <nav className="agreement-tabs" aria-label="Agreement readiness workflow">
+                {([
+                  ["scope", "1", "Scope audit"],
+                  ["documents", "2", "Evidence & privacy"],
+                  ["terms", "3", "Terms & payments"],
+                  ["packet", "4", "Readiness packet"],
+                ] as [AgreementStep, string, string][]).map(([key, number, label]) => (
+                  <button key={key} className={agreementStep === key ? "active" : ""} onClick={() => setAgreementStep(key)}>
+                    <span>{number}</span>{label}
+                  </button>
+                ))}
+              </nav>
+
+              {agreementStep === "scope" && (
+                <>
+                  <section className="agreement-intro">
+                    <div><span className="eyebrow">Final-scope comparison</span><h2>Eight terms checked against the field record.</h2></div>
+                    <p>“Aligned” means the draft reflects the verified record. It does not guarantee workmanship, hidden conditions, enforceability, or legal compliance.</p>
+                  </section>
+
+                  <section className="scope-audit">
+                    <div className="scope-audit-row scope-audit-head"><span>Scope item</span><span>Verified project</span><span>Contractor draft</span><span>HUM review</span></div>
+                    {agreementScopeRows.map((row) => {
+                      const resolved = resolvedAgreementItems.includes(row.id);
+                      return (
+                        <div className="scope-audit-row" key={row.id}>
+                          <strong>{row.item}</strong>
+                          <span>{row.verified}</span>
+                          <span>{row.draft}</span>
+                          <div className="audit-result">
+                            <b className={`audit-status ${resolved ? "resolved" : row.tone}`}>{resolved ? "Clarified in demo" : row.status}</b>
+                            <small>{row.note}</small>
+                            {row.tone !== "clear" && <button onClick={() => toggleAgreementItem(row.id)}>{resolved ? "Reopen item" : "Simulate clarification"}</button>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </section>
+
+                  <section className="risk-explainer section-block">
+                    <div><span className="eyebrow light">Why HUM stopped the agreement</span><h2>Price agreement is not scope agreement.</h2><p>The revised total matches the selected proposal, but vague product language, an open decking price, and a ventilation exclusion can still change value or create conflict.</p></div>
+                    <div className="risk-key">
+                      <span><i className="key-critical" /><strong>Critical</strong><small>Could materially change scope, cost, or protection</small></span>
+                      <span><i className="key-review" /><strong>Review</strong><small>Needs clearer wording or supporting detail</small></span>
+                      <span><i className="key-clear" /><strong>Aligned</strong><small>Matches the current verified record</small></span>
+                    </div>
+                  </section>
+
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => go("verification")}>Back to verified scope</button><button className="primary-button" onClick={() => setAgreementStep("documents")}>Review contractor evidence</button></div>
+                </>
+              )}
+
+              {agreementStep === "documents" && (
+                <>
+                  <section className="agreement-intro">
+                    <div><span className="eyebrow">Contractor evidence review</span><h2>Records are visible, dated, and never overstated.</h2></div>
+                    <p>Every item below is fictional demo evidence. A real HUM record would show its source, date checked, and whether independent confirmation is still needed.</p>
+                  </section>
+
+                  <section className="document-grid">
+                    {contractorDocuments.map((document) => {
+                      const resolved = resolvedAgreementItems.includes(document.id);
+                      return (
+                        <article className="document-card" key={document.id}>
+                          <div><span className={`audit-status ${resolved ? "resolved" : document.tone}`}>{resolved ? "Clarified in demo" : document.status}</span><small>Fictional evidence</small></div>
+                          <h3>{document.title}</h3>
+                          <strong>{document.evidence}</strong>
+                          <p>{document.note}</p>
+                          {document.tone !== "clear" && <button className="link-button" onClick={() => toggleAgreementItem(document.id)}>{resolved ? "Reopen evidence item" : "Simulate evidence received"}</button>}
+                        </article>
+                      );
+                    })}
+                  </section>
+
+                  <section className="agreement-privacy section-block">
+                    <div className="privacy-heading">
+                      <span className="eyebrow light">Agreement privacy checkpoint</span>
+                      <h2>Approve only what enters the review packet.</h2>
+                      <p>The demo packet uses placeholders. HUM does not collect payment details, signatures, or government identification in this round.</p>
+                    </div>
+                    <div className="agreement-data-list">
+                      <div><span><strong>Demo homeowner identity</strong><small>“Demo Homeowner” placeholder only</small></span><b>Included</b></div>
+                      <div><span><strong>Demo service location</strong><small>Fictional project address placeholder</small></span><b>Included</b></div>
+                      <div><span><strong>Direct phone and email</strong><small>HUM message relay remains the contact path</small></span><b className="private">Private</b></div>
+                      <div><span><strong>Payment details and identification</strong><small>Not requested or stored in this demo</small></span><b className="private">Not collected</b></div>
+                      <div><span><strong>Unapproved interior photos</strong><small>Excluded from the agreement packet</small></span><b className="private">Private</b></div>
+                    </div>
+                    <label className="agreement-consent">
+                      <input type="checkbox" checked={agreementConsent} onChange={(event) => setAgreementConsent(event.target.checked)} />
+                      <span>I reviewed the fictional agreement packet and approve only the two placeholder items marked “Included.”</span>
+                    </label>
+                  </section>
+
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setAgreementStep("scope")}>Back to scope audit</button><button className="primary-button" onClick={() => setAgreementStep("terms")}>Review terms and payments</button></div>
+                </>
+              )}
+
+              {agreementStep === "terms" && (
+                <>
+                  <section className="agreement-intro">
+                    <div><span className="eyebrow">Payment protection</span><h2>Payments follow visible project milestones.</h2></div>
+                    <p>This prototype schedule is educational, not payment or legal advice. Deposit limits, notices, lien rules, and contract requirements must be checked for the project’s jurisdiction.</p>
+                  </section>
+
+                  <section className="payment-plan">
+                    {paymentSchedule.map((payment, index) => (
+                      <article key={payment.milestone}>
+                        <span>{String(index + 1).padStart(2, "0")}</span>
+                        <div><small>Milestone</small><strong>{payment.milestone}</strong><p>{payment.trigger}</p></div>
+                        <b>{money(payment.amount)}</b>
+                      </article>
+                    ))}
+                    <div className="payment-total"><span>Fictional draft total</span><strong>{money(paymentSchedule.reduce((sum, payment) => sum + payment.amount, 0))}</strong><small>Confirm every trigger, amount, and local requirement before accepting a real schedule.</small></div>
+                  </section>
+
+                  <section className="change-order-card section-block">
+                    <div><span className="eyebrow light">Written change-order process</span><h2>No surprise work or price.</h2><p>The demo process records the reason, exact scope change, price effect, and schedule effect before changed work is approved.</p></div>
+                    <div className="change-order-flow">
+                      {[
+                        ["1", "Document condition", "Photos and field note identify why the change is needed."],
+                        ["2", "Price the difference", "Labor, material, overhead, and allowance effects are itemized."],
+                        ["3", "Show schedule effect", "Added days and any revised completion window are stated."],
+                        ["4", "Written approval", "Both parties approve before changed work begins."],
+                      ].map(([number, title, copy]) => <span key={title}><b>{number}</b><strong>{title}</strong><small>{copy}</small></span>)}
+                    </div>
+                    <button className={resolvedAgreementItems.includes("change-orders") ? "resolved-term" : "term-action"} onClick={() => toggleAgreementItem("change-orders")}>{resolvedAgreementItems.includes("change-orders") ? "Demo wording clarified ✓" : "Simulate adding this process"}</button>
+                  </section>
+
+                  <section className="responsibility-matrix section-block">
+                    <div className="section-title"><div><span className="eyebrow">Schedule and responsibilities</span><h2>Who owns each part of the project</h2></div></div>
+                    <div className="responsibility-row responsibility-head"><span>Term</span><span>Draft owner</span><span>Current wording</span><span>Review</span></div>
+                    {[
+                      ["Start window", "Contractor", "Begins after deposit and material availability", "Needs a measurable window and written delay notices"],
+                      ["Completion", "Contractor", `Estimated ${agreementProposal.revisedTimeline}`, "Define completion and punch-list closeout"],
+                      ["Weather delays", "Contractor", "Excusable delay", "Add notice timing and revised schedule"],
+                      ["Permits", "Contractor", "Obtains and closes permit", "Aligned with verified scope"],
+                      ["Property access", "Homeowner", "Driveway and attic hatch access", "Define dates, notice, and daily security"],
+                      ["Protection and cleanup", "Contractor", "Broom clean", "Add landscaping, nail sweep, disposal, and damage process"],
+                    ].map((row) => <div className="responsibility-row" key={row[0]}>{row.map((cell, index) => <span key={cell} data-label={["Term", "Owner", "Wording", "Review"][index]}>{cell}</span>)}</div>)}
+                  </section>
+
+                  <section className="negotiation-checklist section-block">
+                    <div className="section-title"><div><span className="eyebrow">Negotiation checklist</span><h2>Turn every warning into a direct question</h2></div><span className="step-count">{openAgreementItems.length} open</span></div>
+                    <div>
+                      {negotiationItems.map((item) => {
+                        const resolved = resolvedAgreementItems.includes(item.id);
+                        return <button key={item.id} className={resolved ? "resolved" : ""} onClick={() => toggleAgreementItem(item.id)}><span>{resolved ? "✓" : "!"}</span><strong>{item.label}</strong><small>{resolved ? "Clarified in this demo" : "Needs human review"}</small></button>;
+                      })}
+                    </div>
+                  </section>
+
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setAgreementStep("documents")}>Back to evidence</button><button className="primary-button" onClick={() => setAgreementStep("packet")}>Review readiness summary</button></div>
+                </>
+              )}
+
+              {agreementStep === "packet" && (
+                <>
+                  <section className="packet-overview">
+                    <div className="packet-score">
+                      <span className="eyebrow light">Current readiness</span>
+                      <strong>{readinessScore}<small>/100</small></strong>
+                      <p>{openCriticalItems.length ? "Human review must address the critical items before anyone considers signing." : "No critical demo flags remain, but a qualified human should still review the full agreement."}</p>
+                    </div>
+                    <div className="packet-risk-summary">
+                      <span className="eyebrow">Final risk summary</span>
+                      <h2>{openCriticalItems.length} critical and {openReviewItems} review item{openReviewItems === 1 ? "" : "s"} remain.</h2>
+                      <div><span><i className="key-critical" />Critical</span><strong>{openCriticalItems.length}</strong></div>
+                      <div><span><i className="key-review" />Review</span><strong>{openReviewItems}</strong></div>
+                      <div><span><i className="key-clear" />Clarified in demo</span><strong>{resolvedAgreementItems.length}</strong></div>
+                    </div>
+                  </section>
+
+                  <section className="packet-contents section-block">
+                    <div className="section-title"><div><span className="eyebrow">Readiness packet contents</span><h2>One record for homeowner and contractor review</h2></div><span className="step-count">Fictional demonstration</span></div>
+                    <div>
+                      <article><span>01</span><strong>Verified scope cross-check</strong><small>Eight draft terms compared with the Round 5 field record</small></article>
+                      <article><span>02</span><strong>Contractor evidence register</strong><small>License, insurance, bond, and worker-coverage review states</small></article>
+                      <article><span>03</span><strong>Payment and change-order plan</strong><small>Milestones, written approval flow, and schedule effects</small></article>
+                      <article><span>04</span><strong>Open negotiation checklist</strong><small>{openAgreementItems.length} unresolved item{openAgreementItems.length === 1 ? "" : "s"} preserved for human review</small></article>
+                      <article><span>05</span><strong>Privacy and sharing record</strong><small>{agreementConsent ? "Demo placeholders approved; private data excluded" : "Agreement information still awaiting approval"}</small></article>
+                    </div>
+                  </section>
+
+                  {!agreementConsent && (
+                    <section className="packet-consent-warning">
+                      <div><strong>Privacy review incomplete</strong><span>Approve the fictional placeholder information before preparing the packet.</span></div>
+                      <button className="secondary-button" onClick={() => setAgreementStep("documents")}>Review information</button>
+                    </section>
+                  )}
+
+                  {!packetPrepared ? (
+                    <section className="prepare-packet section-block">
+                      <div><span className="eyebrow light">Round 6 final checkpoint</span><h2>Prepare the human-review packet.</h2><p>The packet preserves open warnings. It does not approve the contractor, decide legal sufficiency, accept terms, create a signature, or authorize payment.</p></div>
+                      <button disabled={!agreementConsent} onClick={prepareAgreementPacket}>Prepare demo packet <span>→</span></button>
+                    </section>
+                  ) : (
+                    <section className="agreement-ready-banner section-block">
+                      <div><span className="eyebrow light">Round 6 complete</span><h2>Agreement packet ready for human review—no binding contract has been signed.</h2><p>Open risks and clarifications remain visible in the packet; HUM has not sent, signed, or accepted anything.</p></div>
+                      <button onClick={downloadAgreementPacket}>Download readiness packet <span>↓</span></button>
+                    </section>
+                  )}
+
+                  <section className="legal-boundary">
+                    <strong>Human review boundary</strong>
+                    <span>HUM organizes project information and flags inconsistencies. It does not provide legal advice, verify real records in this demo, or determine whether an agreement is enforceable.</span>
+                  </section>
+
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setAgreementStep("terms")}>Back to terms</button>{packetPrepared && <button className="primary-button" onClick={downloadAgreementPacket}>Download packet</button>}</div>
                 </>
               )}
             </>
