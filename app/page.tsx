@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 
-type View = "overview" | "intelligence" | "costs" | "matches" | "sharing" | "proposals" | "verification" | "agreement";
+type View = "overview" | "intelligence" | "costs" | "matches" | "sharing" | "proposals" | "verification" | "agreement" | "launch";
 
 type ShareKey = "scope" | "dimensions" | "location" | "budget" | "photos";
 type VerificationStep = "planning" | "tracking" | "findings" | "revised";
 type AgreementStep = "scope" | "documents" | "terms" | "packet";
+type LaunchStep = "resolve" | "approvals" | "setup" | "payments" | "kickoff";
 
 const money = (value: number) =>
   new Intl.NumberFormat("en-US", {
@@ -267,6 +268,121 @@ const negotiationItems = [
   { id: "change-orders", label: "Require written price and schedule approval before changed work begins." },
 ];
 
+const finalAgreementChanges = [
+  {
+    id: "shingle-product",
+    item: "Roofing system",
+    before: "30-year architectural shingles",
+    after: "NorthStar Coastal 30 system with named starter, ridge, and underlayment",
+    source: "Selection schedule A",
+  },
+  {
+    id: "decking-unit",
+    item: "Additional decking",
+    before: "Additional sheets at market rate",
+    after: "$135 per 7/16-inch OSB sheet, written homeowner approval required",
+    source: "Scope §4.2",
+  },
+  {
+    id: "ventilation",
+    item: "Intake ventilation",
+    before: "No intake work included",
+    after: "Contractor verifies intake balance before ordering and prices any correction",
+    source: "Scope §6.1",
+  },
+  {
+    id: "workers-comp",
+    item: "Worker coverage",
+    before: "No evidence in packet",
+    after: "Fictional certificate added with review date and expiration",
+    source: "Evidence register",
+  },
+  {
+    id: "bond-proof",
+    item: "Bond evidence",
+    before: "Unreadable attachment",
+    after: "Legible fictional bond record attached for independent confirmation",
+    source: "Evidence register",
+  },
+  {
+    id: "start-window",
+    item: "Start and delay terms",
+    before: "Begins after deposit",
+    after: "Start Aug 24–28; written notice required for any delay",
+    source: "Schedule §2",
+  },
+  {
+    id: "cleanup",
+    item: "Protection and cleanup",
+    before: "Leave broom clean",
+    after: "Daily debris removal, landscape protection, magnetic sweep, final walkthrough",
+    source: "Site plan §5",
+  },
+  {
+    id: "change-orders",
+    item: "Change orders",
+    before: "Contractor may proceed when necessary",
+    after: "Written scope, price, and schedule approval before changed work begins",
+    source: "Agreement §9",
+  },
+];
+
+const launchDocuments = [
+  {
+    id: "permit",
+    title: "Permit plan",
+    record: "Contractor files before mobilization",
+    date: "Due Aug 14, 2026",
+    note: "Issuance must be recorded before the start window.",
+  },
+  {
+    id: "liability",
+    title: "Liability certificate",
+    record: "Fictional policy record",
+    date: "Expires Dec 31, 2026",
+    note: "Independently confirm the carrier and active dates in a real project.",
+  },
+  {
+    id: "bond",
+    title: "Bond record",
+    record: "Fictional legible evidence",
+    date: "Reviewed Aug 7, 2026",
+    note: "The demo records evidence review, not real verification.",
+  },
+  {
+    id: "workers",
+    title: "Worker coverage",
+    record: "Fictional certificate",
+    date: "Expires Jan 31, 2027",
+    note: "Coverage status must be rechecked if the project is delayed.",
+  },
+  {
+    id: "notice",
+    title: "Required notices",
+    record: "Placeholder notice packet",
+    date: "Review before approval",
+    note: "Jurisdiction-specific forms still require qualified human review.",
+  },
+  {
+    id: "license",
+    title: "License checkpoint",
+    record: "DEMO-LIC-001",
+    date: "Recheck before start",
+    note: "No licensing agency was contacted by this demonstration.",
+  },
+];
+
+const preconstructionItems = [
+  { id: "staging", label: "Driveway staging area cleared and delivery path confirmed." },
+  { id: "vehicles", label: "Vehicles moved outside the material and debris zone." },
+  { id: "pets", label: "Pet safety and gate-control plan acknowledged." },
+  { id: "attic", label: "Attic access, interior protection, and dust expectations reviewed." },
+  { id: "landscape", label: "Landscaping, siding, windows, and outdoor equipment protection mapped." },
+  { id: "neighbors", label: "Noise window and neighbor-notice plan reviewed." },
+  { id: "weather", label: "Weather delay, dry-in, and emergency contact process confirmed." },
+  { id: "cleanup", label: "Daily cleanup, magnetic sweep, dumpster removal, and final walkthrough confirmed." },
+];
+
 export default function Home() {
   const [view, setView] = useState<View>("overview");
   const [sqft, setSqft] = useState(2000);
@@ -301,6 +417,29 @@ export default function Home() {
   const [resolvedAgreementItems, setResolvedAgreementItems] = useState<string[]>([]);
   const [agreementConsent, setAgreementConsent] = useState(false);
   const [packetPrepared, setPacketPrepared] = useState(false);
+  const [launchStep, setLaunchStep] = useState<LaunchStep>("resolve");
+  const [agreementVersion, setAgreementVersion] = useState(1);
+  const [agreementLocked, setAgreementLocked] = useState(false);
+  const [approvalAcknowledgements, setApprovalAcknowledgements] = useState<string[]>([]);
+  const [homeownerApproved, setHomeownerApproved] = useState(false);
+  const [contractorApproved, setContractorApproved] = useState(false);
+  const [demoSignatures, setDemoSignatures] = useState<string[]>([]);
+  const [materialSelections, setMaterialSelections] = useState({
+    system: "",
+    color: "",
+    underlayment: "",
+    accessories: "",
+  });
+  const [documentChecks, setDocumentChecks] = useState<string[]>([]);
+  const [logisticsConfirmed, setLogisticsConfirmed] = useState(false);
+  const [paymentGateChecks, setPaymentGateChecks] = useState<string[]>([]);
+  const [preconstructionChecks, setPreconstructionChecks] = useState<string[]>([]);
+  const [launchLog, setLaunchLog] = useState([
+    { time: "Aug 7 · 10:15 AM", type: "Agreement", note: "Round 6 readiness packet opened for final negotiation." },
+    { time: "Aug 7 · 11:05 AM", type: "Change order", note: "Written price-and-schedule approval process added to the fictional draft." },
+  ]);
+  const [logDraft, setLogDraft] = useState("");
+  const [launchActivated, setLaunchActivated] = useState(false);
 
   const estimate = useMemo(() => {
     const pitchFactor = pitch === "Steep" ? 1.28 : pitch === "Low" ? 1.06 : 1.15;
@@ -375,6 +514,27 @@ export default function Home() {
   const openCriticalItems = openAgreementItems.filter((item) => ["decking-unit", "ventilation", "workers-comp"].includes(item.id));
   const openReviewItems = openAgreementItems.length - openCriticalItems.length;
   const readinessScore = Math.max(45, 100 - openCriticalItems.length * 10 - openReviewItems * 3 - (agreementConsent ? 0 : 5));
+  const allAgreementResolved = negotiationItems.every((item) => resolvedAgreementItems.includes(item.id));
+  const approvalsComplete =
+    homeownerApproved &&
+    contractorApproved &&
+    demoSignatures.includes("homeowner") &&
+    demoSignatures.includes("contractor");
+  const selectionsComplete = Object.values(materialSelections).every(Boolean);
+  const documentsComplete = launchDocuments.every((document) => documentChecks.includes(document.id));
+  const paymentGatesComplete = paymentSchedule.every((payment) => paymentGateChecks.includes(payment.milestone));
+  const preconstructionComplete = preconstructionItems.every((item) => preconstructionChecks.includes(item.id));
+  const launchRequirements = [
+    { id: "agreement", label: "Negotiated agreement resolved and locked", ready: allAgreementResolved && agreementLocked },
+    { id: "approvals", label: "Both demo approvals and acknowledgements recorded", ready: approvalsComplete },
+    { id: "selections", label: "Materials and accessories selected", ready: selectionsComplete },
+    { id: "documents", label: "Pre-start evidence checkpoints reviewed", ready: documentsComplete },
+    { id: "logistics", label: "Start window, access, and contacts confirmed", ready: logisticsConfirmed },
+    { id: "payments", label: "Milestone payment gates defined and reviewed", ready: paymentGatesComplete },
+    { id: "site", label: "Pre-construction protection checklist complete", ready: preconstructionComplete },
+  ];
+  const launchScore = Math.round((launchRequirements.filter((requirement) => requirement.ready).length / launchRequirements.length) * 100);
+  const kickoffReady = launchRequirements.every((requirement) => requirement.ready);
 
   const go = (next: View) => {
     setView(next);
@@ -449,7 +609,22 @@ export default function Home() {
     go("agreement");
   };
 
+  const openLaunch = () => {
+    if (!packetPrepared) {
+      setNotice("Round 7 is using the preserved fictional Round 6 packet so you can inspect the launch workflow.");
+      setTimeout(() => setNotice(""), 5000);
+    }
+    setStage(7);
+    setLaunchStep(launchActivated ? "kickoff" : agreementLocked ? "approvals" : "resolve");
+    go("launch");
+  };
+
   const toggleAgreementItem = (id: string) => {
+    if (agreementLocked) {
+      setNotice("Agreement version 2 is locked. Unlock it before changing a clarified term.");
+      setTimeout(() => setNotice(""), 4000);
+      return;
+    }
     setResolvedAgreementItems((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
   };
 
@@ -508,6 +683,162 @@ export default function Home() {
     setTimeout(() => setNotice(""), 4000);
   };
 
+  const applyNegotiatedAgreement = () => {
+    if (agreementLocked) return;
+    setResolvedAgreementItems(negotiationItems.map((item) => item.id));
+    setAgreementVersion(2);
+    setHomeownerApproved(false);
+    setContractorApproved(false);
+    setDemoSignatures([]);
+    setLaunchActivated(false);
+    if (agreementVersion < 2) {
+      setLaunchLog((items) => [
+        ...items,
+        { time: "Aug 7 · 11:32 AM", type: "Agreement", note: "Eight negotiated clarifications applied to fictional agreement version 2." },
+      ]);
+    }
+    setNotice("Negotiated demo terms applied. Review the changes before locking version 2.");
+    setTimeout(() => setNotice(""), 4500);
+  };
+
+  const lockAgreementVersion = () => {
+    if (!allAgreementResolved) {
+      setNotice("Resolve every carried-forward warning before locking the agreement version.");
+      setTimeout(() => setNotice(""), 4000);
+      return;
+    }
+    setAgreementLocked(true);
+    setAgreementVersion(2);
+    setLaunchLog((items) => items.some((item) => item.note.includes("Version 2 locked")) ? items : [
+      ...items,
+      { time: "Aug 7 · 11:40 AM", type: "Version", note: "Version 2 locked for matching homeowner and contractor review." },
+    ]);
+    setNotice("Agreement version 2 locked. Both parties now review the same fictional record.");
+    setTimeout(() => setNotice(""), 4500);
+  };
+
+  const unlockAgreementVersion = () => {
+    setAgreementLocked(false);
+    setHomeownerApproved(false);
+    setContractorApproved(false);
+    setDemoSignatures([]);
+    setLaunchActivated(false);
+    setNotice("Version unlocked for revision. Prior demo approvals and acknowledgements were cleared.");
+    setTimeout(() => setNotice(""), 4500);
+  };
+
+  const toggleApprovalAcknowledgement = (id: string) => {
+    setApprovalAcknowledgements((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
+    setHomeownerApproved(false);
+    setDemoSignatures((items) => items.filter((item) => item !== "homeowner"));
+    setLaunchActivated(false);
+  };
+
+  const simulateHomeownerApproval = () => {
+    if (!agreementLocked || approvalAcknowledgements.length < 3) return;
+    setHomeownerApproved(true);
+    setNotice("Demo homeowner approval recorded for locked version 2. This is not a legal signature.");
+    setTimeout(() => setNotice(""), 4500);
+  };
+
+  const simulateContractorApproval = () => {
+    if (!agreementLocked) return;
+    setContractorApproved(true);
+    setNotice("Fictional contractor approval recorded for locked version 2.");
+    setTimeout(() => setNotice(""), 4000);
+  };
+
+  const toggleDemoSignature = (party: "homeowner" | "contractor") => {
+    const approved = party === "homeowner" ? homeownerApproved : contractorApproved;
+    if (!approved) return;
+    setDemoSignatures((items) => items.includes(party) ? items.filter((item) => item !== party) : [...items, party]);
+    setLaunchActivated(false);
+  };
+
+  const toggleDocumentCheck = (id: string) => {
+    setDocumentChecks((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
+    setLaunchActivated(false);
+  };
+
+  const togglePaymentGate = (milestone: string) => {
+    setPaymentGateChecks((items) => items.includes(milestone) ? items.filter((item) => item !== milestone) : [...items, milestone]);
+    setLaunchActivated(false);
+  };
+
+  const togglePreconstructionItem = (id: string) => {
+    setPreconstructionChecks((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id]);
+    setLaunchActivated(false);
+  };
+
+  const addLaunchLogEntry = () => {
+    const note = logDraft.trim();
+    if (!note) return;
+    setLaunchLog((items) => [
+      ...items,
+      { time: "Aug 7 · 12:05 PM", type: "Project note", note },
+    ]);
+    setLogDraft("");
+    setNotice("Demo project note added locally. Nothing was sent to a contractor.");
+    setTimeout(() => setNotice(""), 4000);
+  };
+
+  const activateProjectLaunch = () => {
+    if (!kickoffReady) {
+      setNotice("Complete every launch gate before marking the fictional project kickoff ready.");
+      setTimeout(() => setNotice(""), 4500);
+      return;
+    }
+    setLaunchActivated(true);
+    setStage(7);
+    setNotice("Project kickoff marked ready in this demo. No real action was taken.");
+    setTimeout(() => setNotice(""), 5000);
+  };
+
+  const downloadLaunchRecord = () => {
+    const lines = [
+      "HUM PROJECT-LAUNCH RECORD",
+      "Fictional demonstration · Not a contract, signature, payment record, or construction authorization",
+      "",
+      `Contractor: ${agreementProposal.contractor}`,
+      `Agreement version: ${agreementVersion}`,
+      `Version locked: ${agreementLocked ? "Yes" : "No"}`,
+      `Demo approvals complete: ${approvalsComplete ? "Yes" : "No"}`,
+      `Launch readiness: ${launchScore}%`,
+      `Kickoff status: ${launchActivated ? "Demo kickoff ready" : kickoffReady ? "Ready to mark" : "Incomplete"}`,
+      "",
+      "FINAL AGREEMENT CHANGES",
+      ...finalAgreementChanges.map((change) => `${resolvedAgreementItems.includes(change.id) ? "[RESOLVED]" : "[OPEN]"} ${change.item}: ${change.before} -> ${change.after}`),
+      "",
+      "MATERIAL SELECTIONS",
+      `System: ${materialSelections.system || "Open"}`,
+      `Color: ${materialSelections.color || "Open"}`,
+      `Underlayment: ${materialSelections.underlayment || "Open"}`,
+      `Accessories: ${materialSelections.accessories || "Open"}`,
+      "",
+      "PRE-START CHECKPOINTS",
+      ...launchDocuments.map((document) => `${documentChecks.includes(document.id) ? "[REVIEWED]" : "[OPEN]"} ${document.title}: ${document.record}`),
+      "",
+      "PAYMENT GATES",
+      ...paymentSchedule.map((payment) => `${paymentGateChecks.includes(payment.milestone) ? "[DEFINED]" : "[OPEN]"} ${payment.milestone}: ${money(payment.amount)} | No funds collected`),
+      "",
+      "PRE-CONSTRUCTION CHECKLIST",
+      ...preconstructionItems.map((item) => `${preconstructionChecks.includes(item.id) ? "[COMPLETE]" : "[OPEN]"} ${item.label}`),
+      "",
+      "Project kickoff ready—no real signature, payment, message, or construction action has occurred.",
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "HUM-project-launch-record.txt";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setNotice("Demo launch record downloaded. It does not authorize construction.");
+    setTimeout(() => setNotice(""), 4000);
+  };
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -544,6 +875,9 @@ export default function Home() {
           <button className={view === "agreement" ? "active" : ""} onClick={openAgreement}>
             <span>07</span> Agreement readiness
           </button>
+          <button className={view === "launch" ? "active" : ""} onClick={openLaunch}>
+            <span>08</span> Project launch
+          </button>
         </nav>
 
         <div className="sidebar-foot">
@@ -556,11 +890,16 @@ export default function Home() {
         <header className="topbar">
           <div>
             <span className="mobile-brand">HUM</span>
-            <span className="project-status"><i /> {packetPrepared ? "Agreement packet ready" : view === "agreement" ? "Agreement review in progress" : preferredContractor ? "Preferred contractor selected" : inspectionReady ? "Verified scope ready" : visitsScheduled ? "Site visits scheduled" : requestsSent ? "Contractor review active" : "Preliminary scope ready"}</span>
+            <span className="project-status"><i /> {launchActivated ? "Project kickoff ready" : view === "launch" ? "Project launch review in progress" : packetPrepared ? "Agreement packet ready" : view === "agreement" ? "Agreement review in progress" : preferredContractor ? "Preferred contractor selected" : inspectionReady ? "Verified scope ready" : visitsScheduled ? "Site visits scheduled" : requestsSent ? "Contractor review active" : "Preliminary scope ready"}</span>
           </div>
           <div className="top-actions">
             <button className="text-button">Save draft</button>
-            <button className="primary-button" onClick={() => packetPrepared || preferredContractor || view === "agreement" ? openAgreement() : inspectionReady || visitsScheduled ? openVerification() : go(requestsSent ? "proposals" : "matches")}>{packetPrepared ? "Review readiness packet" : preferredContractor || view === "agreement" ? "Continue agreement review" : inspectionReady ? "Review verified scope" : visitsScheduled ? "Track site visits" : requestsSent ? "Review proposals" : "Find contractors"}</button>
+            <button
+              className="primary-button"
+              onClick={() => launchActivated || view === "launch" || packetPrepared ? openLaunch() : preferredContractor || view === "agreement" ? openAgreement() : inspectionReady || visitsScheduled ? openVerification() : go(requestsSent ? "proposals" : "matches")}
+            >
+              {launchActivated ? "Review kickoff dashboard" : view === "launch" || packetPrepared ? "Continue project launch" : preferredContractor || view === "agreement" ? "Continue agreement review" : inspectionReady ? "Review verified scope" : visitsScheduled ? "Track site visits" : requestsSent ? "Review proposals" : "Find contractors"}
+            </button>
           </div>
         </header>
 
@@ -595,7 +934,7 @@ export default function Home() {
               </section>
 
               <section className="section-block">
-                <div className="section-title"><div><span className="eyebrow">What happens next</span><h2>From questions to an agreement-ready packet</h2></div><span className="step-count">Step {stage} of 6</span></div>
+                <div className="section-title"><div><span className="eyebrow">What happens next</span><h2>From questions to a protected project kickoff</h2></div><span className="step-count">Step {stage} of 7</span></div>
                 <div className="timeline">
                   {[
                     ["Project intake", "Complete", "Your core property and roof details are structured."],
@@ -604,8 +943,9 @@ export default function Home() {
                     ["Compare proposals", stage > 4 ? "Complete" : "Next", "Normalize pricing, exclusions, warranties, and risk before deciding."],
                     ["Verify on site", inspectionReady ? "Complete" : stage === 5 ? "Current" : "Next", "Replace remote assumptions with documented field findings."],
                     ["Prepare agreement", packetPrepared ? "Complete" : stage === 6 ? "Current" : "Next", "Audit the final scope, evidence, payment terms, and protections."],
+                    ["Launch project", launchActivated ? "Complete" : stage === 7 ? "Current" : "Next", "Lock one version, record approvals, and clear every pre-start gate."],
                   ].map(([title, label, copy], index) => (
-                    <button key={title} className={`timeline-item ${index + 1 === stage && !((index === 4 && inspectionReady) || (index === 5 && packetPrepared)) ? "current" : ""}`} onClick={() => { setStage(index + 1); if (index === 1) go("intelligence"); if (index === 2) go("matches"); if (index === 3) go(requestsSent ? "proposals" : "sharing"); if (index === 4) openVerification(); if (index === 5) openAgreement(); }}>
+                    <button key={title} className={`timeline-item ${index + 1 === stage && !((index === 4 && inspectionReady) || (index === 5 && packetPrepared) || (index === 6 && launchActivated)) ? "current" : ""}`} onClick={() => { setStage(index + 1); if (index === 1) go("intelligence"); if (index === 2) go("matches"); if (index === 3) go(requestsSent ? "proposals" : "sharing"); if (index === 4) openVerification(); if (index === 5) openAgreement(); if (index === 6) openLaunch(); }}>
                       <span className="timeline-number">{index + 1}</span>
                       <span><small>{label}</small><strong>{title}</strong><p>{copy}</p></span>
                     </button>
@@ -1262,7 +1602,408 @@ export default function Home() {
                     <span>HUM organizes project information and flags inconsistencies. It does not provide legal advice, verify real records in this demo, or determine whether an agreement is enforceable.</span>
                   </section>
 
-                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setAgreementStep("terms")}>Back to terms</button>{packetPrepared && <button className="primary-button" onClick={downloadAgreementPacket}>Download packet</button>}</div>
+                  <div className="bottom-actions">
+                    <button className="secondary-button" onClick={() => setAgreementStep("terms")}>Back to terms</button>
+                    <div className="button-row">
+                      {packetPrepared && <button className="secondary-button" onClick={downloadAgreementPacket}>Download packet</button>}
+                      {packetPrepared && <button className="primary-button" onClick={openLaunch}>Continue to project launch</button>}
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {view === "launch" && (
+            <>
+              <section className="page-heading split-heading launch-heading">
+                <div>
+                  <span className="eyebrow copper">Project launch</span>
+                  <h1>Start with one record everyone understands.</h1>
+                  <p>HUM carries every unresolved warning into a protected pre-construction workflow, then shows exactly what must be cleared before a fictional kickoff can be marked ready.</p>
+                </div>
+                <div className="launch-meter" aria-label={`${launchScore} percent project launch readiness`}>
+                  <strong>{launchScore}%</strong>
+                  <span>launch readiness</span>
+                  <small>{launchRequirements.filter((requirement) => requirement.ready).length} of {launchRequirements.length} gates clear</small>
+                </div>
+              </section>
+
+              <section className="launch-project-bar">
+                <div className="proposal-id">
+                  <span>{agreementProposal.initials}</span>
+                  <div><h3>{agreementProposal.contractor}</h3><small>Fictional contractor · {money(agreementProposal.revisedTotal)} verified proposal</small></div>
+                </div>
+                <div><span>Agreement version</span><strong>Version {agreementVersion}</strong></div>
+                <div><span>Version state</span><strong>{agreementLocked ? "Locked for review" : "Editable demo draft"}</strong></div>
+                <div><span>Kickoff state</span><strong>{launchActivated ? "Demo ready" : kickoffReady ? "Ready to mark" : "Gates remain"}</strong></div>
+                <div className="nonbinding-pill">No real action</div>
+              </section>
+
+              <nav className="launch-tabs" aria-label="Project launch workflow">
+                {([
+                  ["resolve", "1", "Resolve & lock"],
+                  ["approvals", "2", "Approvals"],
+                  ["setup", "3", "Selections & setup"],
+                  ["payments", "4", "Payment gates"],
+                  ["kickoff", "5", "Kickoff dashboard"],
+                ] as [LaunchStep, string, string][]).map(([key, number, label]) => (
+                  <button key={key} className={launchStep === key ? "active" : ""} onClick={() => setLaunchStep(key)}>
+                    <span>{number}</span>{label}
+                  </button>
+                ))}
+              </nav>
+
+              {launchStep === "resolve" && (
+                <>
+                  <section className="launch-intro">
+                    <div><span className="eyebrow">Negotiation record</span><h2>Nothing disappears between readiness and launch.</h2></div>
+                    <p>Round 6 found eight items requiring clarification. Round 7 records the revised wording, its source, and whether both parties are looking at the same locked version.</p>
+                  </section>
+
+                  <section className="version-control">
+                    <div>
+                      <span className="eyebrow light">Agreement control</span>
+                      <h2>{agreementLocked ? "Version 2 is locked." : agreementVersion === 2 ? "Version 2 is ready to lock." : "Version 1 still carries open warnings."}</h2>
+                      <p>{agreementLocked ? "Any new edit must unlock the version and clear both demo approvals." : "Apply the fictional negotiated terms, inspect every change, then lock the record before approvals."}</p>
+                    </div>
+                    <div className="version-stats">
+                      <span><small>Current version</small><strong>v{agreementVersion}</strong></span>
+                      <span><small>Clarifications</small><strong>{resolvedAgreementItems.filter((id) => negotiationItems.some((item) => item.id === id)).length}/8</strong></span>
+                      <span><small>Review state</small><strong>{agreementLocked ? "Locked" : "Open"}</strong></span>
+                    </div>
+                    <div className="version-actions">
+                      {!agreementLocked && !allAgreementResolved && <button onClick={applyNegotiatedAgreement}>Apply negotiated demo version</button>}
+                      {!agreementLocked && allAgreementResolved && <button onClick={lockAgreementVersion}>Lock version 2 for review</button>}
+                      {agreementLocked && <button onClick={unlockAgreementVersion}>Unlock and clear approvals</button>}
+                    </div>
+                  </section>
+
+                  <section className="agreement-diff section-block">
+                    <div className="diff-row diff-head"><span>Term</span><span>Round 6 wording</span><span>Negotiated version</span><span>Record</span></div>
+                    {finalAgreementChanges.map((change) => {
+                      const resolved = resolvedAgreementItems.includes(change.id);
+                      return (
+                        <div className="diff-row" key={change.id}>
+                          <strong>{change.item}</strong>
+                          <span>{change.before}</span>
+                          <span>{change.after}</span>
+                          <div>
+                            <b className={`audit-status ${resolved ? "resolved" : "critical"}`}>{resolved ? "Resolved in v2" : "Still open"}</b>
+                            <small>{change.source}</small>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </section>
+
+                  <section className="version-boundary">
+                    <strong>Version-lock rule</strong>
+                    <span>A locked version makes the demo approval record consistent. Unlocking it automatically clears prior approvals and acknowledgements so no one appears to approve changed terms.</span>
+                  </section>
+
+                  <div className="bottom-actions"><button className="secondary-button" onClick={openAgreement}>Back to readiness packet</button><button className="primary-button" disabled={!agreementLocked} onClick={() => setLaunchStep("approvals")}>{agreementLocked ? "Review approvals" : "Lock version 2 to continue"}</button></div>
+                </>
+              )}
+
+              {launchStep === "approvals" && (
+                <>
+                  <section className="launch-intro">
+                    <div><span className="eyebrow">Matching approvals</span><h2>Both parties acknowledge the same locked version.</h2></div>
+                    <p>These controls only demonstrate consent tracking. They do not create an electronic signature, legal acceptance, identity verification, or an enforceable agreement.</p>
+                  </section>
+
+                  {!agreementLocked && (
+                    <section className="launch-warning">
+                      <div><strong>Agreement version is not locked</strong><span>Return to the comparison and lock the fully resolved version before recording approvals.</span></div>
+                      <button className="secondary-button" onClick={() => setLaunchStep("resolve")}>Resolve and lock</button>
+                    </section>
+                  )}
+
+                  <section className="party-approval-grid section-block">
+                    <article className="approval-card">
+                      <div className="approval-card-head">
+                        <div><span>DH</span><div><small>Homeowner</small><strong>Demo homeowner</strong></div></div>
+                        <b className={`audit-status ${homeownerApproved ? "resolved" : "review"}`}>{homeownerApproved ? "Approved v2" : "Awaiting review"}</b>
+                      </div>
+                      <p>Before the demo approval can be recorded, the homeowner acknowledges each boundary.</p>
+                      <div className="acknowledgement-list">
+                        {[
+                          ["scope", "I reviewed the negotiated scope and version-2 change summary."],
+                          ["privacy", "I reviewed which fictional project details enter the launch record."],
+                          ["demo", "I understand this is a demonstration and not a real contract or signature."],
+                        ].map(([id, label]) => (
+                          <label key={id}>
+                            <input type="checkbox" checked={approvalAcknowledgements.includes(id)} onChange={() => toggleApprovalAcknowledgement(id)} />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <button className="primary-button" disabled={!agreementLocked || approvalAcknowledgements.length < 3 || homeownerApproved} onClick={simulateHomeownerApproval}>{homeownerApproved ? "Demo approval recorded" : "Record demo homeowner approval"}</button>
+                    </article>
+
+                    <article className="approval-card">
+                      <div className="approval-card-head">
+                        <div><span>{agreementProposal.initials}</span><div><small>Contractor</small><strong>{agreementProposal.contractor}</strong></div></div>
+                        <b className={`audit-status ${contractorApproved ? "resolved" : "review"}`}>{contractorApproved ? "Approved v2" : "Awaiting review"}</b>
+                      </div>
+                      <p>The fictional contractor review shows the exact version, scope total, start window, payment triggers, and open-change process.</p>
+                      <dl className="approval-summary">
+                        <div><dt>Version</dt><dd>2 · locked</dd></div>
+                        <div><dt>Project total</dt><dd>{money(agreementProposal.revisedTotal)}</dd></div>
+                        <div><dt>Start window</dt><dd>Aug 24–28</dd></div>
+                        <div><dt>Change orders</dt><dd>Written approval before work</dd></div>
+                      </dl>
+                      <button className="primary-button" disabled={!agreementLocked || contractorApproved} onClick={simulateContractorApproval}>{contractorApproved ? "Fictional approval recorded" : "Simulate contractor approval"}</button>
+                    </article>
+                  </section>
+
+                  <section className="signature-record section-block">
+                    <div>
+                      <span className="eyebrow light">Acknowledgement record</span>
+                      <h2>Visible status without pretending to sign.</h2>
+                      <p>Each button records a fictional acknowledgement attached to version 2. Names, handwriting, identity documents, certificates, and cryptographic signatures are not collected.</p>
+                    </div>
+                    <div className="signature-parties">
+                      {[
+                        ["homeowner", "Demo homeowner", homeownerApproved],
+                        ["contractor", agreementProposal.contractor, contractorApproved],
+                      ].map(([party, name, approved]) => {
+                        const acknowledged = demoSignatures.includes(party as string);
+                        return (
+                          <div key={party as string}>
+                            <span><small>{party === "homeowner" ? "Homeowner" : "Contractor"}</small><strong>{name as string}</strong></span>
+                            <button disabled={!approved} className={acknowledged ? "acknowledged" : ""} onClick={() => toggleDemoSignature(party as "homeowner" | "contractor")}>{acknowledged ? "Acknowledged ✓" : approved ? "Record acknowledgement" : "Approval required"}</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setLaunchStep("resolve")}>Back to version control</button><button className="primary-button" disabled={!approvalsComplete} onClick={() => setLaunchStep("setup")}>{approvalsComplete ? "Choose materials and setup" : "Complete both acknowledgements"}</button></div>
+                </>
+              )}
+
+              {launchStep === "setup" && (
+                <>
+                  <section className="launch-intro">
+                    <div><span className="eyebrow">Selections and setup</span><h2>Turn agreement language into a buildable plan.</h2></div>
+                    <p>Product selections, document dates, site access, and communication records stay tied to the locked version so later changes remain visible.</p>
+                  </section>
+
+                  <section className="selection-panel">
+                    <div className="selection-heading">
+                      <span className="eyebrow light">Material schedule</span>
+                      <h2>Name the system before ordering.</h2>
+                      <p>Every option below is fictional and exists only to demonstrate a structured selection record.</p>
+                    </div>
+                    <div className="selection-fields">
+                      <label>Roofing system
+                        <select value={materialSelections.system} onChange={(event) => { setMaterialSelections((items) => ({ ...items, system: event.target.value })); setLaunchActivated(false); }}>
+                          <option value="">Select a system</option>
+                          <option>NorthStar Coastal 30 · fictional</option>
+                          <option>Redwood WeatherGuard · fictional</option>
+                        </select>
+                      </label>
+                      <label>Color
+                        <select value={materialSelections.color} onChange={(event) => { setMaterialSelections((items) => ({ ...items, color: event.target.value })); setLaunchActivated(false); }}>
+                          <option value="">Select a color</option>
+                          <option>Weathered charcoal</option>
+                          <option>Coastal cedar</option>
+                          <option>Fog gray</option>
+                        </select>
+                      </label>
+                      <label>Underlayment
+                        <select value={materialSelections.underlayment} onChange={(event) => { setMaterialSelections((items) => ({ ...items, underlayment: event.target.value })); setLaunchActivated(false); }}>
+                          <option value="">Select underlayment</option>
+                          <option>High-performance synthetic · fictional</option>
+                          <option>Self-adhered weather barrier · fictional</option>
+                        </select>
+                      </label>
+                      <label>Accessories
+                        <select value={materialSelections.accessories} onChange={(event) => { setMaterialSelections((items) => ({ ...items, accessories: event.target.value })); setLaunchActivated(false); }}>
+                          <option value="">Select accessories</option>
+                          <option>Matched starter, ridge, vents, and flashing kit</option>
+                          <option>Matched starter, ridge, and low-profile vent kit</option>
+                        </select>
+                      </label>
+                    </div>
+                  </section>
+
+                  <section className="launch-document-section section-block">
+                    <div className="section-title"><div><span className="eyebrow">Pre-start evidence</span><h2>Review dates, expirations, and ownership</h2></div><span className="step-count">{documentChecks.length}/{launchDocuments.length} reviewed</span></div>
+                    <div className="launch-document-grid">
+                      {launchDocuments.map((document) => {
+                        const checked = documentChecks.includes(document.id);
+                        return (
+                          <article key={document.id}>
+                            <div><span className={`audit-status ${checked ? "resolved" : "review"}`}>{checked ? "Reviewed in demo" : "Review needed"}</span><small>Fictional</small></div>
+                            <h3>{document.title}</h3>
+                            <strong>{document.record}</strong>
+                            <b>{document.date}</b>
+                            <p>{document.note}</p>
+                            <button className={checked ? "checked-action" : ""} onClick={() => toggleDocumentCheck(document.id)}>{checked ? "Reopen checkpoint" : "Mark checkpoint reviewed"}</button>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="logistics-card section-block">
+                    <div className="logistics-heading">
+                      <span className="eyebrow light">Project logistics</span>
+                      <h2>Know who arrives, when, and how the property works.</h2>
+                      <p>No contact details are exposed. The demo uses role-based placeholders and keeps direct personal information private.</p>
+                    </div>
+                    <div className="logistics-grid">
+                      <span><small>Start window</small><strong>Aug 24–28, 2026</strong><b>5-day confirmed range</b></span>
+                      <span><small>Expected duration</small><strong>4–5 workdays</strong><b>Weather dependent</b></span>
+                      <span><small>Contractor lead</small><strong>Fictional project manager</strong><b>HUM relay only</b></span>
+                      <span><small>Homeowner contact</small><strong>Demo homeowner</strong><b>Direct details private</b></span>
+                      <span><small>Primary access</small><strong>Driveway + side gate</strong><b>Daily security check</b></span>
+                      <span><small>Interior access</small><strong>Attic hatch by notice</strong><b>24-hour request</b></span>
+                    </div>
+                    <label className="logistics-confirmation">
+                      <input type="checkbox" checked={logisticsConfirmed} onChange={(event) => { setLogisticsConfirmed(event.target.checked); setLaunchActivated(false); }} />
+                      <span>I reviewed the fictional start window, duration, access plan, contact roles, and homeowner responsibilities.</span>
+                    </label>
+                  </section>
+
+                  <section className="communication-log section-block">
+                    <div className="section-title"><div><span className="eyebrow">Communication and change-order log</span><h2>One chronological project record</h2></div><span className="step-count">Demo only · nothing sent</span></div>
+                    <div className="log-layout">
+                      <div className="log-entries">
+                        {launchLog.map((entry, index) => (
+                          <div key={`${entry.time}-${index}`}><span>{entry.time}</span><b>{entry.type}</b><p>{entry.note}</p></div>
+                        ))}
+                      </div>
+                      <div className="log-composer">
+                        <label htmlFor="launch-note">Add a local demo note</label>
+                        <textarea id="launch-note" value={logDraft} onChange={(event) => setLogDraft(event.target.value)} placeholder="Example: Confirm material delivery path before start." rows={5} />
+                        <button className="primary-button" disabled={!logDraft.trim()} onClick={addLaunchLogEntry}>Add to demo log</button>
+                        <small>This does not contact a contractor or create a real change order.</small>
+                      </div>
+                    </div>
+                  </section>
+
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setLaunchStep("approvals")}>Back to approvals</button><button className="primary-button" disabled={!selectionsComplete || !documentsComplete || !logisticsConfirmed} onClick={() => setLaunchStep("payments")}>{selectionsComplete && documentsComplete && logisticsConfirmed ? "Review payment gates" : "Complete setup checkpoints"}</button></div>
+                </>
+              )}
+
+              {launchStep === "payments" && (
+                <>
+                  <section className="launch-intro">
+                    <div><span className="eyebrow">Milestone protection</span><h2>Define every gate without moving money.</h2></div>
+                    <p>Round 7 records what must be true before a payment could become eligible. It does not charge a card, hold funds, issue a receipt, recommend a payment schedule, or verify local payment rules.</p>
+                  </section>
+
+                  <section className="payment-gate-grid">
+                    {paymentSchedule.map((payment, index) => {
+                      const checked = paymentGateChecks.includes(payment.milestone);
+                      return (
+                        <article key={payment.milestone} className={checked ? "reviewed" : ""}>
+                          <div><span>{String(index + 1).padStart(2, "0")}</span><b className={`audit-status ${checked ? "resolved" : "review"}`}>{checked ? "Gate reviewed" : "Review gate"}</b></div>
+                          <small>Fictional milestone</small>
+                          <h3>{payment.milestone}</h3>
+                          <strong>{money(payment.amount)}</strong>
+                          <p>{payment.trigger}</p>
+                          <dl>
+                            <div><dt>Funds</dt><dd>Not collected</dd></div>
+                            <div><dt>Receipt</dt><dd>Not created</dd></div>
+                          </dl>
+                          <button onClick={() => togglePaymentGate(payment.milestone)}>{checked ? "Reopen gate" : "Confirm gate definition"}</button>
+                        </article>
+                      );
+                    })}
+                  </section>
+
+                  <section className="receipt-register section-block">
+                    <div className="section-title"><div><span className="eyebrow">Payment and receipt register</span><h2>An empty ledger is the correct demo state</h2></div><span className="step-count">$0 collected</span></div>
+                    <div className="receipt-row receipt-head"><span>Milestone</span><span>Gate state</span><span>Payment record</span><span>Receipt record</span></div>
+                    {paymentSchedule.map((payment) => (
+                      <div className="receipt-row" key={payment.milestone}>
+                        <strong>{payment.milestone}</strong>
+                        <span>{paymentGateChecks.includes(payment.milestone) ? "Definition reviewed" : "Awaiting review"}</span>
+                        <span>No funds collected</span>
+                        <span>No receipt issued</span>
+                      </div>
+                    ))}
+                  </section>
+
+                  <section className="preconstruction-panel section-block">
+                    <div className="preconstruction-heading">
+                      <span className="eyebrow light">Property readiness</span>
+                      <h2>Protect people, pets, and the home before mobilization.</h2>
+                      <p>Each acknowledgement is a fictional readiness record. A real project would assign owners, due dates, evidence, and re-checks.</p>
+                      <strong>{preconstructionChecks.length}/{preconstructionItems.length} complete</strong>
+                    </div>
+                    <div className="preconstruction-list">
+                      {preconstructionItems.map((item) => {
+                        const checked = preconstructionChecks.includes(item.id);
+                        return (
+                          <button key={item.id} className={checked ? "complete" : ""} onClick={() => togglePreconstructionItem(item.id)}>
+                            <span>{checked ? "✓" : "!"}</span>
+                            <strong>{item.label}</strong>
+                            <small>{checked ? "Acknowledged in demo" : "Needs review"}</small>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setLaunchStep("setup")}>Back to project setup</button><button className="primary-button" disabled={!paymentGatesComplete || !preconstructionComplete} onClick={() => setLaunchStep("kickoff")}>{paymentGatesComplete && preconstructionComplete ? "Open kickoff dashboard" : "Clear payment and property gates"}</button></div>
+                </>
+              )}
+
+              {launchStep === "kickoff" && (
+                <>
+                  <section className="kickoff-overview">
+                    <div className="kickoff-score">
+                      <span className="eyebrow light">Project launch readiness</span>
+                      <strong>{launchScore}<small>%</small></strong>
+                      <p>{kickoffReady ? "Every protected launch gate is clear in this fictional workflow." : `${launchRequirements.filter((requirement) => !requirement.ready).length} launch gate${launchRequirements.filter((requirement) => !requirement.ready).length === 1 ? "" : "s"} still need attention.`}</p>
+                    </div>
+                    <div className="launch-requirements">
+                      <span className="eyebrow">Final launch gates</span>
+                      <h2>{kickoffReady ? "Ready to mark the demo kickoff." : "Finish the remaining project protections."}</h2>
+                      {launchRequirements.map((requirement) => (
+                        <button key={requirement.id} className={requirement.ready ? "ready" : ""} onClick={() => {
+                          if (requirement.id === "agreement") setLaunchStep("resolve");
+                          if (requirement.id === "approvals") setLaunchStep("approvals");
+                          if (["selections", "documents", "logistics"].includes(requirement.id)) setLaunchStep("setup");
+                          if (["payments", "site"].includes(requirement.id)) setLaunchStep("payments");
+                        }}>
+                          <span>{requirement.ready ? "✓" : "!"}</span><strong>{requirement.label}</strong><small>{requirement.ready ? "Clear" : "Review"}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="kickoff-facts section-block">
+                    <article><span className="eyebrow">Locked agreement</span><strong>Version {agreementVersion}</strong><p>{agreementLocked ? "Both fictional approvals refer to this exact version." : "Agreement version still needs locking."}</p></article>
+                    <article><span className="eyebrow">Selected system</span><strong>{materialSelections.color || "Selection open"}</strong><p>{materialSelections.system || "Choose the fictional roofing system."}</p></article>
+                    <article><span className="eyebrow">Start plan</span><strong>Aug 24–28</strong><p>4–5 workdays · driveway staging · attic by notice</p></article>
+                    <article><span className="eyebrow">Money state</span><strong>$0 collected</strong><p>Four milestone definitions reviewed; no receipts issued.</p></article>
+                  </section>
+
+                  {!launchActivated ? (
+                    <section className="activate-launch section-block">
+                      <div><span className="eyebrow light">Round 7 final checkpoint</span><h2>{kickoffReady ? "Mark the fictional project kickoff ready." : "The kickoff remains protected."}</h2><p>{kickoffReady ? "This updates only the local demonstration status. It does not sign, pay, message, schedule, order, permit, or authorize construction." : "HUM will not allow the demo kickoff state until every visible requirement is complete."}</p></div>
+                      <button disabled={!kickoffReady} onClick={activateProjectLaunch}>{kickoffReady ? "Mark demo kickoff ready" : `${launchScore}% ready`} <span>→</span></button>
+                    </section>
+                  ) : (
+                    <section className="kickoff-ready-banner section-block">
+                      <div><span className="eyebrow light">Round 7 complete</span><h2>Project kickoff ready—no real signature, payment, or construction action has occurred.</h2><p>The locked version, approvals, selections, evidence, logistics, payment gates, and property protections remain visible in one launch record.</p></div>
+                      <button onClick={downloadLaunchRecord}>Download launch record <span>↓</span></button>
+                    </section>
+                  )}
+
+                  <section className="launch-boundary">
+                    <div><strong>What HUM did</strong><span>Organized fictional decisions, checked launch dependencies, preserved changes, and created a reviewable project record.</span></div>
+                    <div><strong>What HUM did not do</strong><span>Create a real signature, transfer funds, contact a contractor, file a permit, order materials, or authorize any construction activity.</span></div>
+                  </section>
+
+                  <div className="bottom-actions"><button className="secondary-button" onClick={() => setLaunchStep("payments")}>Back to payment gates</button><button className="primary-button" onClick={downloadLaunchRecord}>Download launch record</button></div>
                 </>
               )}
             </>
