@@ -1,4 +1,35 @@
-# vinext-starter
+# HUM Roofing Intelligence
+
+HUM is a privacy-first homeowner workspace for understanding a roofing project, reviewing nonbinding cost guidance, comparing contractor proposals, and documenting on-site verification before any agreement.
+
+The current build includes development Rounds 1–5:
+
+1. Preliminary roofing intake and planning range
+2. Transparent roof intelligence and cost assumptions
+3. Project workspace and contractor matching
+4. Homeowner-controlled sharing and normalized proposals
+5. On-site visit planning, field findings, verified cost reconciliation, and revised proposals
+
+All names, addresses, appointments, inspection findings, and contractor offers in this public demo are fictional. The interface does not contact real contractors, create appointments, accept agreements, or collect payments.
+
+## Run locally on macOS
+
+```bash
+cd ~/Downloads/hum-roofing-intelligence
+git pull origin main
+npm install
+npm run dev -- --open
+```
+
+If the browser does not open automatically:
+
+```bash
+open http://localhost:5173
+```
+
+Keep the Terminal window running while using the local app.
+
+## Technical base
 
 A clean full-stack starter running on
 [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
