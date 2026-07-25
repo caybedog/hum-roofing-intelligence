@@ -51,6 +51,7 @@ const blankProject = (ownerId: string): Omit<Project, "id" | "created_at" | "upd
   homeowner_facts: {},
   ai_interpretation: null,
   ai_source: null,
+  is_test: false,
   archived_at: null,
 });
 

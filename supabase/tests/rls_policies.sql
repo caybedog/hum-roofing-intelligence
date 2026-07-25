@@ -69,11 +69,44 @@ values
     '{"requested_role":"homeowner","full_name":"RLS Administrator"}'::jsonb,
     now(),
     now()
+  ),
+  (
+    '50000000-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'rls-qa-homeowner@hum.invalid',
+    extensions.crypt('Round4QaHomeowner9', extensions.gen_salt('bf')),
+    now(),
+    '{}'::jsonb,
+    '{"requested_role":"homeowner","full_name":"RLS QA Homeowner"}'::jsonb,
+    now(),
+    now()
+  ),
+  (
+    '50000000-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000000',
+    'authenticated',
+    'authenticated',
+    'rls-qa-contractor@hum.invalid',
+    extensions.crypt('Round4QaContractor9', extensions.gen_salt('bf')),
+    now(),
+    '{}'::jsonb,
+    '{"requested_role":"contractor","full_name":"RLS QA Contractor"}'::jsonb,
+    now(),
+    now()
   );
 
 update public.profiles
 set role = 'administrator'
 where id = '30000000-0000-0000-0000-000000000001';
+
+update public.profiles
+set is_test_account = true
+where id in (
+  '50000000-0000-0000-0000-000000000001',
+  '50000000-0000-0000-0000-000000000002'
+);
 
 insert into public.projects (
   id,
@@ -640,6 +673,171 @@ begin
   end if;
   if (select count(*) from public.pilot_outcomes) <> 1 then
     raise exception 'Pilot RLS failure: administrator cannot see outcome evidence';
+  end if;
+end;
+$$;
+
+-- Phase 4A: test identities and projects remain isolated from real pilot
+-- evidence, while persistent controls stay administrator-only.
+
+update public.pilot_settings
+set
+  enrollments_paused = true,
+  invitation_expiry_days = 7,
+  variance_review_threshold_pct = 12.5,
+  updated_by = '30000000-0000-0000-0000-000000000001'
+where id = 1;
+
+insert into public.qa_runs (
+  id,
+  created_by,
+  label,
+  homeowner_user_id,
+  homeowner_email,
+  contractor_user_id,
+  contractor_email
+)
+values (
+  '60000000-0000-0000-0000-000000000001',
+  '30000000-0000-0000-0000-000000000001',
+  'RLS Phase 4A rehearsal',
+  '50000000-0000-0000-0000-000000000001',
+  'rls-qa-homeowner@hum.invalid',
+  '50000000-0000-0000-0000-000000000002',
+  'rls-qa-contractor@hum.invalid'
+);
+
+do $$
+declare
+  role_change_blocked boolean := false;
+begin
+  if not exists (
+    select 1
+    from public.qa_runs
+    where id = '60000000-0000-0000-0000-000000000001'
+      and status = 'active'
+  ) then
+    raise exception 'Phase 4A failure: administrator cannot see QA runs';
+  end if;
+
+  begin
+    perform public.admin_set_user_role(
+      '50000000-0000-0000-0000-000000000001',
+      'administrator'
+    );
+  exception
+    when raise_exception then role_change_blocked := true;
+  end;
+
+  if not role_change_blocked then
+    raise exception 'Phase 4A failure: QA account became an administrator';
+  end if;
+end;
+$$;
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"50000000-0000-0000-0000-000000000001","role":"authenticated"}',
+  true
+);
+
+insert into public.projects (
+  id,
+  homeowner_id,
+  title,
+  city,
+  county,
+  footprint_sqft
+)
+values (
+  '60000000-0000-0000-0000-000000000002',
+  '50000000-0000-0000-0000-000000000001',
+  'QA project that cannot count',
+  'Eureka',
+  'Humboldt',
+  1400
+);
+
+do $$
+declare
+  changed_settings integer := 0;
+begin
+  if not exists (
+    select 1
+    from public.projects
+    where id = '60000000-0000-0000-0000-000000000002'
+      and is_test = true
+  ) then
+    raise exception 'Phase 4A failure: QA project was not server-classified';
+  end if;
+
+  if (select count(*) from public.qa_runs) <> 0 then
+    raise exception 'Phase 4A failure: QA homeowner can see admin rehearsal records';
+  end if;
+
+  update public.pilot_settings
+  set enrollments_paused = false
+  where id = 1;
+  get diagnostics changed_settings = row_count;
+
+  if changed_settings <> 0 then
+    raise exception 'Phase 4A failure: QA homeowner changed pilot settings';
+  end if;
+
+  begin
+    perform public.reset_qa_run_data(
+      '60000000-0000-0000-0000-000000000001',
+      '30000000-0000-0000-0000-000000000001'
+    );
+    raise exception 'Phase 4A failure: authenticated user invoked QA reset';
+  exception
+    when insufficient_privilege then null;
+  end;
+end;
+$$;
+
+insert into public.pilot_enrollments (
+  project_id,
+  homeowner_id,
+  homeowner_consent,
+  consented_at
+)
+values (
+  '60000000-0000-0000-0000-000000000002',
+  '50000000-0000-0000-0000-000000000001',
+  true,
+  now()
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-0000-0000-000000000002","role":"authenticated"}',
+  true
+);
+
+do $$
+declare
+  enrollment_blocked boolean := false;
+begin
+  begin
+    insert into public.pilot_enrollments (
+      project_id,
+      homeowner_id,
+      homeowner_consent,
+      consented_at
+    )
+    values (
+      '40000000-0000-0000-0000-000000000002',
+      '10000000-0000-0000-0000-000000000002',
+      true,
+      now()
+    );
+  exception
+    when raise_exception then enrollment_blocked := true;
+  end;
+
+  if not enrollment_blocked then
+    raise exception 'Phase 4A failure: paused real enrollment was accepted';
   end if;
 end;
 $$;

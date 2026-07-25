@@ -12,6 +12,7 @@ import type {
   PilotFeedback,
   PilotInvitation,
   PilotOutcome,
+  PilotSettings,
   PilotSupportIssue,
   PricingObservation,
   Profile,
@@ -19,6 +20,10 @@ import type {
   QuoteDifferenceReason,
 } from "./types";
 import styles from "./foundation.module.css";
+import {
+  buildPilotEvidenceScope,
+  onlyRealProjectRows,
+} from "./pilot-evidence.mjs";
 
 type QuoteDraft = {
   material: string;
@@ -84,6 +89,7 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [reviews, setReviews] = useState<ContractorReview[]>([]);
   const [observations, setObservations] = useState<PricingObservation[]>([]);
+  const [settings, setSettings] = useState<PilotSettings | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -128,6 +134,7 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
       profileResult,
       reviewResult,
       observationResult,
+      settingsResult,
     ] = await Promise.all([
       supabase.from("projects").select("*").order("updated_at", { ascending: false }),
       supabase.from("estimates").select("*").order("created_at", { ascending: false }),
@@ -182,6 +189,7 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
             .select("*")
             .order("created_at", { ascending: false })
         : Promise.resolve({ data: [], error: null }),
+      supabase.from("pilot_settings").select("*").eq("id", 1).single(),
     ]);
 
     const firstError = [
@@ -199,6 +207,7 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
       profileResult.error,
       reviewResult.error,
       observationResult.error,
+      settingsResult.error,
     ].find(Boolean);
 
     if (firstError) {
@@ -222,6 +231,7 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
     setProfiles((profileResult.data ?? []) as Profile[]);
     setReviews((reviewResult.data ?? []) as ContractorReview[]);
     setObservations((observationResult.data ?? []) as PricingObservation[]);
+    setSettings(settingsResult.data as PilotSettings);
     setSelectedId((current) => {
       if (current && projectRows.some((project) => project.id === current)) {
         return current;
@@ -336,7 +346,10 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
     setError("");
     const { data, error: invitationError } = await supabase.rpc(
       "create_pilot_invitation",
-      { p_project_id: selectedEnrollment.project_id, p_expires_days: 14 },
+      {
+        p_project_id: selectedEnrollment.project_id,
+        p_expires_days: settings?.invitation_expiry_days ?? 14,
+      },
     );
     if (invitationError || !data?.[0]) {
       setError(invitationError?.message ?? "The invitation could not be created.");
@@ -629,7 +642,26 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
   }
 
   if (profile.role === "administrator") {
-    const submittedQuotes = quotes.filter((quote) => quote.status === "submitted");
+    const { realProjectIds, testProjectIds } = buildPilotEvidenceScope(
+      projects,
+    ) as {
+      realProjectIds: Set<string>;
+      testProjectIds: Set<string>;
+    };
+    const testProfileIds = new Set(
+      profiles.filter((item) => item.is_test_account).map((item) => item.id),
+    );
+    const realEnrollments = onlyRealProjectRows(
+      enrollments,
+      realProjectIds,
+    ) as PilotEnrollment[];
+    const testEnrollments = enrollments.filter((item) =>
+      testProjectIds.has(item.project_id),
+    );
+    const submittedQuotes = quotes.filter(
+      (quote) =>
+        quote.status === "submitted" && realProjectIds.has(quote.project_id),
+    );
     const projectsWithQuotes = new Set(submittedQuotes.map((quote) => quote.project_id));
     const comparable = submittedQuotes.filter((quote) =>
       estimates.some((estimate) => estimate.id === quote.estimate_id),
@@ -641,7 +673,23 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
       return expected ? Math.abs(quote.total_amount - expected) / expected : 0;
     });
     const contractors = profiles.filter((item) => item.role === "contractor");
-    const criticalIssues = issues.filter(
+    const realReasons = onlyRealProjectRows(
+      reasons,
+      realProjectIds,
+    ) as QuoteDifferenceReason[];
+    const realFeedback = onlyRealProjectRows(
+      feedback,
+      realProjectIds,
+    ) as PilotFeedback[];
+    const realIssues = issues.filter((issue) =>
+      issue.project_id
+        ? realProjectIds.has(issue.project_id)
+        : !testProfileIds.has(issue.reported_by),
+    );
+    const realEvents = events.filter(
+      (event) => !event.project_id || realProjectIds.has(event.project_id),
+    );
+    const criticalIssues = realIssues.filter(
       (issue) =>
         issue.severity === "critical" &&
         !["resolved", "closed"].includes(issue.status),
@@ -657,13 +705,20 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
         <PilotMessages notice={notice} error={error} />
 
         <section className={styles.pilotStatGrid}>
-          <PilotStat label="Real project target" value={`${enrollments.length} / 10`} />
+          <PilotStat
+            label="Real project target"
+            value={`${realEnrollments.length} / 10`}
+          />
           <PilotStat label="With actual quote" value={projectsWithQuotes.size.toString()} />
-          <PilotStat label="Traceable reasons" value={reasons.length.toString()} />
+          <PilotStat label="Traceable reasons" value={realReasons.length.toString()} />
           <PilotStat
             label="Critical open issues"
             value={criticalIssues.length.toString()}
             alert={criticalIssues.length > 0}
+          />
+          <PilotStat
+            label="QA enrollments excluded"
+            value={testEnrollments.length.toString()}
           />
         </section>
 
@@ -682,6 +737,9 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
           <p className={styles.pilotCallout}>
             HUM is collecting directional evidence. It will not declare a strict
             accuracy percentage before enough real project comparisons exist.
+            Variances of{" "}
+            {settings?.variance_review_threshold_pct ?? 15}% or more require
+            explicit human review.
           </p>
           <div className={styles.pilotTable}>
             <div className={styles.pilotTableHead}>
@@ -707,7 +765,10 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
                     {money(difference)}
                   </span>
                   <span>
-                    {reasons.filter((reason) => reason.quote_id === quote.id).length}
+                    {
+                      realReasons.filter((reason) => reason.quote_id === quote.id)
+                        .length
+                    }
                   </span>
                 </div>
               );
@@ -734,6 +795,7 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
                       <small>
                         {pilot?.company_name ?? "Company details pending"} ·{" "}
                         {pilot?.status ?? "not onboarded"}
+                        {contractor.is_test_account ? " · QA only" : ""}
                       </small>
                     </div>
                     <div className={styles.pilotRowActions}>
@@ -846,29 +908,36 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
           <p className={styles.kicker}>Exit gate</p>
           <h2>Round 5 remains locked.</h2>
           <div className={styles.pilotGateGrid}>
-            <Gate done={enrollments.length >= 10} label="10 real roofing projects" />
+            <Gate
+              done={realEnrollments.length >= 10}
+              label="10 real roofing projects"
+            />
             <Gate
               done={
-                enrollments.length >= 10 &&
-                enrollments.every((item) =>
+                realEnrollments.length >= 10 &&
+                realEnrollments.every((item) =>
                   projectsWithQuotes.has(item.project_id),
                 )
               }
               label="Every estimate compared with a quote"
             />
-            <Gate done={reasons.length > 0} label="Differences have reasons" />
+            <Gate
+              done={realReasons.length > 0}
+              label="Differences have reasons"
+            />
             <Gate done={criticalIssues.length === 0} label="No critical privacy failures" />
             <Gate
-              done={feedback.some((item) => item.audience === "contractor")}
+              done={realFeedback.some((item) => item.audience === "contractor")}
               label="Contractor usefulness feedback"
             />
             <Gate
-              done={feedback.some((item) => item.audience === "homeowner")}
+              done={realFeedback.some((item) => item.audience === "homeowner")}
               label="Homeowner understanding feedback"
             />
           </div>
           <p className={styles.pilotFootnote}>
-            Intake events recorded: {events.length}. Round 5 starts only after
+            Real-project events recorded: {realEvents.length}. QA activity is
+            excluded. Round 5 starts only after
             every exit condition is supported by real evidence.
           </p>
         </section>
@@ -888,6 +957,15 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
           copy="Accept a private invitation, review the versioned HUM estimate, and capture an actual quote without joining a public job feed."
         />
         <PilotMessages notice={notice} error={error} />
+        {profile.is_test_account && (
+          <section className={styles.qaModeBanner}>
+            <strong>QA rehearsal mode</strong>
+            <span>
+              Contractor reviews and quotes from this account never count
+              toward the ten-project Phase 4 gate.
+            </span>
+          </section>
+        )}
 
         {!contractorProfile || contractorProfile.status !== "approved" ? (
           <section className={styles.pilotWarning}>
@@ -1194,6 +1272,15 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
         copy="Enroll one protected roofing project, invite a manually approved contractor, and record what the real world proves or disproves."
       />
       <PilotMessages notice={notice} error={error} />
+      {profile.is_test_account && (
+        <section className={styles.qaModeBanner}>
+          <strong>QA rehearsal mode</strong>
+          <span>
+            This account, its projects, quotes, feedback, and outcomes are
+            excluded from all real-pilot exit metrics.
+          </span>
+        </section>
+      )}
       <ProjectPicker
         projects={projects}
         selectedId={selectedId}
@@ -1219,6 +1306,12 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
         <section className={styles.pilotPanel}>
           <p className={styles.kicker}>Controlled enrollment</p>
           <h2>Keep this project private while HUM learns.</h2>
+          {settings?.enrollments_paused && !selectedProject.is_test && (
+            <p className={styles.pilotWarning}>
+              New real-project enrollments are currently paused by the pilot
+              administrator. Existing projects remain available.
+            </p>
+          )}
           <div className={styles.pilotConsent}>
             <strong>By enrolling, you confirm:</strong>
             <span>Only you, HUM administrators, and contractors you invite can access it.</span>
@@ -1228,7 +1321,10 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
           </div>
           <button
             className={styles.primaryButton}
-            disabled={busy === "enroll"}
+            disabled={
+              busy === "enroll" ||
+              (!!settings?.enrollments_paused && !selectedProject.is_test)
+            }
             onClick={enrollProject}
           >
             {busy === "enroll" ? "Enrolling…" : "Enroll this project"}
@@ -1270,7 +1366,8 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
             </div>
             <p className={styles.muted}>
               The link works only for a manually approved HUM contractor account,
-              expires after 14 days, and grants access to this project alone.
+              expires after {settings?.invitation_expiry_days ?? 14} days, and
+              grants access to this project alone.
             </p>
             <button
               className={styles.primaryButton}

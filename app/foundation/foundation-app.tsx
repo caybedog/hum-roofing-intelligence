@@ -11,6 +11,7 @@ import ContractorWorkspace from "./contractor-workspace";
 import AdminWorkspace from "./admin-workspace";
 import styles from "./foundation.module.css";
 import PilotWorkspace from "./pilot-workspace";
+import QaWorkspace from "./qa-workspace";
 
 export default function FoundationApp() {
   const [session, setSession] = useState<Session | null>(null);
@@ -170,7 +171,9 @@ export default function FoundationApp() {
       )}
       {profile.role === "administrator" && (
         <>
-          {view === "pilot" ? (
+          {view === "qa" ? (
+            <QaWorkspace profile={profile} />
+          ) : view === "pilot" ? (
             <PilotWorkspace profile={profile} />
           ) : (
             <AdminWorkspace profile={profile} view={view} onView={setView} />

@@ -83,7 +83,7 @@ export default function AuthPanel() {
           HUM
         </Link>
         <p className={styles.kicker}>
-          Controlled Humboldt pilot · Secure roofing intelligence
+          Phase 4A · Controlled Humboldt pilot · Secure roofing intelligence
         </p>
         <h1>
           Understand the project
@@ -92,7 +92,8 @@ export default function AuthPanel() {
         <p className={styles.authIntro}>
           HUM turns homeowner facts into a versioned, explainable planning
           estimate. The controlled pilot now compares that range with real
-          contractor quotes while your projects and photos remain private.
+          contractor quotes while an isolated QA lane rehearses every role
+          without counting test data as real evidence.
         </p>
         <div className={styles.trustGrid}>
           <div>

@@ -7,6 +7,7 @@ export type Profile = {
   role: HumRole;
   service_area: string | null;
   deactivated_at: string | null;
+  is_test_account: boolean;
 };
 
 export type Project = {
@@ -39,7 +40,35 @@ export type Project = {
   homeowner_facts: Record<string, unknown>;
   ai_interpretation: AiInterpretation | null;
   ai_source: "openai" | "deterministic_fallback" | null;
+  is_test: boolean;
   archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PilotSettings = {
+  id: number;
+  enrollments_paused: boolean;
+  invitation_expiry_days: number;
+  variance_review_threshold_pct: number;
+  support_email: string;
+  admin_notes: string;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type QaRun = {
+  id: string;
+  created_by: string;
+  label: string;
+  homeowner_user_id: string;
+  homeowner_email: string;
+  contractor_user_id: string;
+  contractor_email: string;
+  status: "active" | "reset" | "failed";
+  reset_by: string | null;
+  reset_at: string | null;
   created_at: string;
   updated_at: string;
 };

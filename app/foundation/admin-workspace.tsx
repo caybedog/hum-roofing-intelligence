@@ -372,13 +372,14 @@ export default function AdminWorkspace({
     ).length;
     return {
       users: profiles.length,
-      projects: projects.length,
+      projects: projects.filter((project) => !project.is_test).length,
+      testProjects: projects.filter((project) => project.is_test).length,
       aiRequests: aiRequests.length,
       fallbackRate: aiRequests.length
         ? Math.round((fallbacks / aiRequests.length) * 100)
         : 0,
     };
-  }, [aiRequests, profiles.length, projects.length]);
+  }, [aiRequests, profiles.length, projects]);
 
   if (loading) {
     return (
@@ -418,7 +419,8 @@ export default function AdminWorkspace({
           />
           <div className={styles.trustGrid}>
             <StatCard label="Accounts" value={operationStats.users} />
-            <StatCard label="Projects" value={operationStats.projects} />
+            <StatCard label="Real projects" value={operationStats.projects} />
+            <StatCard label="QA projects" value={operationStats.testProjects} />
             <StatCard
               label="Estimate versions"
               value={projects.reduce(
@@ -446,7 +448,10 @@ export default function AdminWorkspace({
                   <div className={styles.historyRow} key={project.id}>
                     <strong>{project.title}</strong>
                     <span>{project.city}, CA</span>
-                    <span>{project.status}</span>
+                    <span>
+                      {project.status}
+                      {project.is_test ? " · QA only" : ""}
+                    </span>
                     <small>
                       {new Date(project.updated_at).toLocaleString()}
                     </small>
@@ -744,7 +749,9 @@ export default function AdminWorkspace({
                   </span>
                   <select
                     value={user.role}
-                    disabled={busy === `role-${user.id}`}
+                    disabled={
+                      busy === `role-${user.id}` || user.is_test_account
+                    }
                     onChange={(event) =>
                       changeRole(user, event.target.value as HumRole)
                     }
@@ -754,7 +761,11 @@ export default function AdminWorkspace({
                     <option value="administrator">Administrator</option>
                   </select>
                   <span className={styles.statusPill}>
-                    {user.deactivated_at ? "deactivated" : "active"}
+                    {user.is_test_account
+                      ? "QA only"
+                      : user.deactivated_at
+                        ? "deactivated"
+                        : "active"}
                   </span>
                 </div>
               ))}

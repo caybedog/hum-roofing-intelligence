@@ -1,6 +1,6 @@
 # HUM Roofing Intelligence
 
-HUM is a secure roofing-intelligence workspace for Humboldt County homeowners. The official product sequence is locked to the HUM roadmap. This repository contains the completed **Round 3 foundation** and the **Round 4 controlled-pilot system**; later marketplace, agreement, and construction screens are preserved at `/prototypes` but do not count as completed roadmap rounds.
+HUM is a secure roofing-intelligence workspace for Humboldt County homeowners. The official product sequence is locked to the HUM roadmap. This repository contains the completed **Round 3 foundation**, the active **Round 4 controlled-pilot system**, and **Phase 4A administrator QA controls**; later marketplace, agreement, and construction screens are preserved at `/prototypes` but do not count as completed roadmap rounds.
 
 ## What the secured foundation includes
 
@@ -38,6 +38,20 @@ Round 4 adds the evidence workflow needed to decide whether the roofing intellig
 - administrator accuracy evidence and exit-gate dashboard
 
 Round 5 remains locked until at least ten real roofing projects have comparable quotes, major differences are explained, both audiences understand the brief, and no critical privacy or authorization failure remains.
+
+## Phase 4A administrator QA
+
+Phase 4A adds a protected rehearsal lane before a real homeowner enters the pilot:
+
+- disposable, role-separated homeowner and contractor QA accounts
+- permanent test-account and test-project classification
+- automatic exclusion of every QA record from the ten-project exit gate
+- a ten-step administrator rehearsal checklist across homeowner, contractor, and administrator roles
+- persistent pilot controls for enrollment pause, invitation expiry, variance review, and support routing
+- audit records for settings changes, QA creation, and QA reset
+- exact-confirmation cleanup that removes only the selected rehearsal’s accounts, projects, photos, estimates, shares, invitations, quotes, reasons, feedback, issues, and outcomes
+
+The `phase4a-admin` Edge Function performs privileged account creation and cleanup only after verifying an active non-test HUM administrator. Temporary passwords are returned once and are never stored in HUM’s database.
 
 ## Update and run on macOS
 

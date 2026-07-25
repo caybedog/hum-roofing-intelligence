@@ -18,6 +18,8 @@ import type {
   PilotOutcome,
   PilotSupportIssue,
   PilotEvent,
+  PilotSettings,
+  QaRun,
 } from "./types";
 
 export type Json =
@@ -107,6 +109,8 @@ export type Database = {
       pilot_outcomes: Table<PilotOutcome>;
       pilot_support_issues: Table<PilotSupportIssue>;
       pilot_events: Table<PilotEvent>;
+      pilot_settings: Table<PilotSettings>;
+      qa_runs: Table<QaRun>;
       project_photos: Table<ProjectPhotoRow>;
       project_shares: Table<ProjectShare>;
       projects: Table<ProjectRow>;

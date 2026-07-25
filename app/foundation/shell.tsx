@@ -13,6 +13,7 @@ export type WorkspaceView =
   | "estimate"
   | "sharing"
   | "pilot"
+  | "qa"
   | "pricing"
   | "operations";
 
@@ -43,9 +44,10 @@ export default function Shell({
   ];
   const adminItems: Array<[WorkspaceView, string, string]> = [
     ["projects", "Projects", "01"],
-    ["pricing", "Pricing control", "02"],
-    ["operations", "Operations", "03"],
-    ["pilot", "Pilot support", "04"],
+    ["qa", "QA rehearsal", "02"],
+    ["pilot", "Pilot support", "03"],
+    ["pricing", "Pricing control", "04"],
+    ["operations", "Operations", "05"],
   ];
   const items =
     profile.role === "administrator"
@@ -63,9 +65,15 @@ export default function Shell({
         </Link>
         <div className={styles.foundationBadge}>
           <span>Roadmap status</span>
-          <strong>Round 4 · Controlled pilot</strong>
-          <small>Real projects · no public marketplace</small>
+          <strong>Phase 4A · Pilot rehearsal</strong>
+          <small>QA excluded · 10 real projects still required</small>
         </div>
+        {profile.is_test_account && (
+          <div className={styles.testAccountBadge}>
+            <strong>QA test account</strong>
+            <span>Nothing here counts toward pilot evidence.</span>
+          </div>
+        )}
         <nav aria-label="Workspace">
           {items.map(([key, label, number]) => (
             <button
