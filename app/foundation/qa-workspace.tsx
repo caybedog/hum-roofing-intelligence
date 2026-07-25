@@ -423,8 +423,8 @@ export default function QaWorkspace({ profile }: { profile: Profile }) {
             <p className={styles.kicker}>Shown once</p>
             <h2>Save these temporary logins before leaving this page.</h2>
             <p>
-              Keep this admin session open and use a private/incognito window for
-              the homeowner and contractor sessions.
+              Keep this admin session open. Each role link opens an isolated HUM
+              session, so signing in or out there will not replace this tab.
             </p>
           </div>
           {(["homeowner", "contractor"] as const).map((role) => (
@@ -450,6 +450,14 @@ export default function QaWorkspace({ profile }: { profile: Profile }) {
               >
                 Copy {role} login
               </button>
+              <a
+                className={styles.secondaryButton}
+                href={`/?auth_slot=qa-${role}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open isolated {role} tab
+              </a>
             </article>
           ))}
         </section>

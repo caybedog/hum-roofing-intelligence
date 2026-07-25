@@ -12,6 +12,13 @@ test("extracts only explicitly stated roofing facts", () => {
   assert.ok(result.facts.some((fact) => fact.field === "reported_area"));
   assert.ok(result.facts.some((fact) => fact.field === "reported_pitch"));
   assert.ok(result.facts.every((fact) => fact.source_text.length > 0));
+  assert.ok(
+    result.confirmed_updates.some(
+      (update) =>
+        update.field === "footprint_sqft" && update.value === "1600",
+    ),
+  );
+  assert.equal(result.follow_up_questions.length <= 1, true);
 });
 
 test("stays cautious when the narrative is incomplete", () => {
@@ -20,6 +27,31 @@ test("stays cautious when the narrative is incomplete", () => {
   assert.equal(result.can_estimate, false);
   assert.ok(result.missing_information.includes("roof pitch"));
   assert.ok(result.follow_up_questions.length > 0);
+});
+
+test("defers an unknown answer and moves to a different question", () => {
+  const result = deterministicIntake("I’m not sure.", {
+    current_question: "roof_pitch",
+    confirmed_fields: ["project_type", "active_leak", "footprint_sqft"],
+  });
+  assert.ok(result.deferred_fields.includes("roof_pitch"));
+  assert.notEqual(result.next_question.field, "roof_pitch");
+});
+
+test("never asks a homeowner to guess decking sheets", () => {
+  const result = deterministicIntake("We need a roof replacement.");
+  assert.equal(
+    result.follow_up_questions.some((question) =>
+      question.toLowerCase().includes("decking"),
+    ),
+    false,
+  );
+  assert.equal(
+    result.confirmed_updates.some(
+      (update) => update.field === "decking_allowance_sheets",
+    ),
+    false,
+  );
 });
 
 test("clips oversized text and never generates a price", () => {

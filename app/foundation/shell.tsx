@@ -98,7 +98,9 @@ export default function Shell({
           <button
             type="button"
             className={styles.accountButton}
-            onClick={() => getSupabaseBrowserClient().auth.signOut()}
+            onClick={() =>
+              getSupabaseBrowserClient().auth.signOut({ scope: "local" })
+            }
           >
             <span>{(profile.full_name ?? profile.email).slice(0, 2).toUpperCase()}</span>
             <span>

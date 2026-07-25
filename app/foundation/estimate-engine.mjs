@@ -55,6 +55,8 @@ function price(map, code, scenario) {
 
 function projectMissingInformation(project) {
   const missing = [];
+  const confirmed = project.homeowner_facts?.confirmed_fields ?? {};
+  const deferred = new Set(project.homeowner_facts?.deferred_fields ?? []);
   if (!project.footprint_sqft) {
     missing.push("Roof footprint or measured roof area");
   }
@@ -66,6 +68,21 @@ function projectMissingInformation(project) {
   }
   if (project.project_type === "unknown") {
     missing.push("Whether the project is repair, replacement, or inspection");
+  }
+  if (!confirmed.roof_pitch || deferred.has("roof_pitch")) {
+    missing.push("On-site confirmation of roof pitch");
+  }
+  if (!confirmed.existing_layers || deferred.has("existing_layers")) {
+    missing.push("On-site confirmation of existing roof layers");
+  }
+  if (!confirmed.access_level || deferred.has("access_level")) {
+    missing.push("Contractor confirmation of staging and property access");
+  }
+  if (!confirmed.complexity || deferred.has("complexity")) {
+    missing.push("Contractor confirmation of roof shape and complexity");
+  }
+  if (project.homeowner_facts?.decking_allowance_method !== "contractor_quantity") {
+    missing.push("Actual damaged decking quantity after tear-off");
   }
   if (project.chimney_count === 0 && project.skylight_count === 0) {
     missing.push("Confirmation of roof penetrations and flashing details");
@@ -216,7 +233,7 @@ export function calculateEstimate(project, pricingVersion, pricingItems) {
     `${expected.roofingSquares} estimated roofing squares after pitch and waste`,
     `${project.existing_layers} existing roof layer${project.existing_layers === 1 ? "" : "s"} carried for removal`,
     `${expected.laborHours} expected labor hours after access, pitch, story, and complexity adjustments`,
-    `${project.decking_allowance_sheets} decking sheets carried as an allowance`,
+    `${project.decking_allowance_sheets} decking sheets carried as a temporary allowance, not a hidden-damage finding`,
     `${Math.round(expected.targetMargin * 100)}% target gross-margin scenario from the approved pricing version`,
   ];
 
@@ -262,6 +279,15 @@ export function calculateEstimate(project, pricingVersion, pricingItems) {
         label: "Pricing version",
         source: "pricing",
         value: pricingVersion.version_code,
+      },
+      {
+        label: "Decking quantity",
+        source: "calculator",
+        value:
+          project.homeowner_facts?.decking_allowance_method ===
+          "contractor_quantity"
+            ? `${project.decking_allowance_sheets} contractor-reported sheets`
+            : `${project.decking_allowance_sheets} temporary allowance sheets`,
       },
       {
         label: "Calculation rule",

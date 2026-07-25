@@ -37,7 +37,7 @@ export type Project = {
   skylight_count: number;
   decking_allowance_sheets: number;
   homeowner_notes: string;
-  homeowner_facts: Record<string, unknown>;
+  homeowner_facts: HomeownerIntakeState;
   ai_interpretation: AiInterpretation | null;
   ai_source: "openai" | "deterministic_fallback" | null;
   is_test: boolean;
@@ -168,11 +168,67 @@ export type AiFact = {
   source_text: string;
 };
 
+export type IntakeFieldKey =
+  | "city"
+  | "postal_code"
+  | "project_type"
+  | "footprint_sqft"
+  | "roof_pitch"
+  | "stories"
+  | "existing_layers"
+  | "roof_material"
+  | "access_level"
+  | "complexity"
+  | "active_leak"
+  | "chimney_count"
+  | "skylight_count";
+
+export type IntakeChatMessage = {
+  role: "homeowner" | "assistant";
+  content: string;
+  created_at: string;
+};
+
+export type HomeownerIntakeState = {
+  intake_version?: number;
+  conversation?: IntakeChatMessage[];
+  confirmed_fields?: Partial<
+    Record<
+      IntakeFieldKey | "title" | "decking_allowance_sheets",
+      {
+        source: "homeowner_chat" | "homeowner_form";
+        source_text: string;
+        confirmed_at: string;
+      }
+    >
+  >;
+  deferred_fields?: IntakeFieldKey[];
+  last_autofilled_fields?: IntakeFieldKey[];
+  decking_allowance_method?: "hum_default" | "contractor_quantity";
+  [key: string]: unknown;
+};
+
+export type AiNextQuestion = {
+  field: IntakeFieldKey | "complete";
+  question: string;
+  why_it_matters: string;
+  answer_help: string[];
+};
+
 export type AiInterpretation = {
   summary: string;
+  assistant_message?: string;
   project_type: "repair" | "replacement" | "inspection" | "unknown";
   urgency: "active_leak" | "damage" | "no_active_leak" | "unknown";
   facts: AiFact[];
+  confirmed_updates?: Array<{
+    field: IntakeFieldKey;
+    value: string;
+    source_text: string;
+  }>;
+  deferred_fields?: IntakeFieldKey[];
+  next_question?: AiNextQuestion;
+  autofilled_fields?: IntakeFieldKey[];
   interpretations: Array<{
     label: string;
     explanation: string;

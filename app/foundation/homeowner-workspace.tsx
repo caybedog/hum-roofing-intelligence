@@ -12,6 +12,8 @@ import {
 import { getSupabaseBrowserClient } from "./supabase";
 import type {
   EstimateRecord,
+  HomeownerIntakeState,
+  IntakeFieldKey,
   Profile,
   Project,
   ProjectPhoto,
@@ -27,28 +29,70 @@ const money = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+const intakeFieldLabels: Record<IntakeFieldKey, string> = {
+  city: "City",
+  postal_code: "ZIP code",
+  project_type: "Project type",
+  footprint_sqft: "Home footprint",
+  roof_pitch: "Roof slope",
+  stories: "Stories",
+  existing_layers: "Existing layers",
+  roof_material: "Roof material",
+  access_level: "Property access",
+  complexity: "Roof shape",
+  active_leak: "Active leak",
+  chimney_count: "Chimneys",
+  skylight_count: "Skylights",
+};
+
+const progressFields: IntakeFieldKey[] = [
+  "city",
+  "postal_code",
+  "project_type",
+  "footprint_sqft",
+  "roof_material",
+  "stories",
+  "roof_pitch",
+  "existing_layers",
+  "active_leak",
+];
+
+function intakeState(project: Project): HomeownerIntakeState {
+  return project.homeowner_facts &&
+    typeof project.homeowner_facts === "object"
+    ? project.homeowner_facts
+    : {};
+}
+
 const blankProject = (ownerId: string): Omit<Project, "id" | "created_at" | "updated_at"> => ({
   homeowner_id: ownerId,
-  title: "My Humboldt roof project",
+  title: "My roof project",
   status: "draft",
   intake_step: 1,
-  city: "Eureka",
+  city: "",
   county: "Humboldt",
-  postal_code: "95501",
-  project_type: "replacement",
-  footprint_sqft: 1500,
+  postal_code: null,
+  project_type: "unknown",
+  footprint_sqft: null,
   roof_pitch: "moderate",
   stories: 1,
   existing_layers: 1,
-  roof_material: "architectural_shingle",
+  roof_material: "unknown",
   access_level: "standard",
   complexity: "standard",
   active_leak: false,
-  chimney_count: 1,
+  chimney_count: 0,
   skylight_count: 0,
   decking_allowance_sheets: 4,
   homeowner_notes: "",
-  homeowner_facts: {},
+  homeowner_facts: {
+    intake_version: 2,
+    conversation: [],
+    confirmed_fields: {},
+    deferred_fields: [],
+    last_autofilled_fields: [],
+    decking_allowance_method: "hum_default",
+  },
   ai_interpretation: null,
   ai_source: null,
   is_test: false,
@@ -79,10 +123,35 @@ export default function HomeownerWorkspace({
   const [error, setError] = useState("");
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [contractorEmail, setContractorEmail] = useState("");
+  const [intakeMessage, setIntakeMessage] = useState("");
 
   const selectedProject =
     draft ?? projects.find((project) => project.id === selectedId) ?? null;
   const latestEstimate = estimates[0] ?? null;
+  const selectedIntakeState = selectedProject
+    ? intakeState(selectedProject)
+    : {};
+  const confirmedFields = selectedIntakeState.confirmed_fields ?? {};
+  const deferredFields = new Set(selectedIntakeState.deferred_fields ?? []);
+  const completedProgress = progressFields.filter(
+    (field) => confirmedFields[field] || deferredFields.has(field),
+  ).length;
+  const conversation = selectedIntakeState.conversation ?? [];
+  const lastAutofilled = selectedIntakeState.last_autofilled_fields ?? [];
+  const nextQuestion = selectedProject?.ai_interpretation?.next_question;
+  const deckingMethod =
+    selectedIntakeState.decking_allowance_method ?? "hum_default";
+  const intakeReady = Boolean(
+    selectedProject?.footprint_sqft &&
+      confirmedFields.footprint_sqft &&
+      confirmedFields.project_type,
+  );
+
+  function statusFor(field: IntakeFieldKey) {
+    if (confirmedFields[field]) return "confirmed" as const;
+    if (deferredFields.has(field)) return "not_sure" as const;
+    return "review" as const;
+  }
 
   const loadProjects = useCallback(async () => {
     setLoading(true);
@@ -160,6 +229,7 @@ export default function HomeownerWorkspace({
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       setDraft(null);
+      setIntakeMessage("");
       if (selectedId) void loadProjectDetails(selectedId);
       else {
         setEstimates([]);
@@ -198,12 +268,18 @@ export default function HomeownerWorkspace({
   async function persistProject(showNotice: boolean) {
     if (!selectedProject) return false;
     setError("");
+    const projectFacts = intakeState(selectedProject);
+    const hasConfirmedEstimateBasics = Boolean(
+      selectedProject.footprint_sqft &&
+        projectFacts.confirmed_fields?.footprint_sqft &&
+        projectFacts.confirmed_fields?.project_type,
+    );
     const update: Partial<Project> = {
       title: selectedProject.title.trim(),
-      status: selectedProject.footprint_sqft
+      status: hasConfirmedEstimateBasics
         ? "ready_for_estimate"
         : "draft",
-      intake_step: selectedProject.footprint_sqft ? 5 : 2,
+      intake_step: hasConfirmedEstimateBasics ? 5 : 2,
       city: selectedProject.city.trim(),
       county: "Humboldt",
       postal_code: selectedProject.postal_code,
@@ -220,6 +296,7 @@ export default function HomeownerWorkspace({
       skylight_count: selectedProject.skylight_count,
       decking_allowance_sheets: selectedProject.decking_allowance_sheets,
       homeowner_notes: selectedProject.homeowner_notes,
+      homeowner_facts: projectFacts,
       updated_at: new Date().toISOString(),
     };
     const { data, error: saveError } = await supabase
@@ -250,13 +327,103 @@ export default function HomeownerWorkspace({
     setBusy("");
   }
 
-  function setField<K extends keyof Project>(key: K, value: Project[K]) {
+  function setField<K extends keyof Project>(
+    key: K,
+    value: Project[K],
+    confirm = true,
+  ) {
     if (!selectedProject) return;
-    setDraft({ ...selectedProject, [key]: value });
+    const state = intakeState(selectedProject);
+    const confirmed = { ...(state.confirmed_fields ?? {}) };
+    const deferred = new Set(state.deferred_fields ?? []);
+    const isIntakeField = progressFields
+      .concat([
+        "access_level",
+        "complexity",
+        "chimney_count",
+        "skylight_count",
+      ])
+      .includes(key as IntakeFieldKey);
+    const isUnknown =
+      value === null ||
+      value === "" ||
+      value === "unknown";
+
+    if (confirm && (isIntakeField || key === "title")) {
+      if (isUnknown) {
+        delete confirmed[key as keyof typeof confirmed];
+        if (isIntakeField) deferred.add(key as IntakeFieldKey);
+      } else {
+        confirmed[key as keyof typeof confirmed] = {
+          source: "homeowner_form",
+          source_text: "Confirmed in the guided form",
+          confirmed_at: new Date().toISOString(),
+        };
+        if (isIntakeField) deferred.delete(key as IntakeFieldKey);
+      }
+    }
+
+    setDraft({
+      ...selectedProject,
+      [key]: value,
+      homeowner_facts: {
+        ...state,
+        intake_version: 2,
+        confirmed_fields: confirmed,
+        deferred_fields: [...deferred],
+        last_autofilled_fields: [],
+        decking_allowance_method:
+          state.decking_allowance_method ?? "hum_default",
+      },
+    });
   }
 
-  async function runAiIntake() {
+  function markDeferred(field: IntakeFieldKey) {
     if (!selectedProject) return;
+    const state = intakeState(selectedProject);
+    const confirmed = { ...(state.confirmed_fields ?? {}) };
+    delete confirmed[field];
+    const deferred = new Set(state.deferred_fields ?? []);
+    deferred.add(field);
+    setDraft({
+      ...selectedProject,
+      homeowner_facts: {
+        ...state,
+        intake_version: 2,
+        confirmed_fields: confirmed,
+        deferred_fields: [...deferred],
+        last_autofilled_fields: [],
+      },
+    });
+  }
+
+  function setDeckingMethod(
+    method: "hum_default" | "contractor_quantity",
+  ) {
+    if (!selectedProject) return;
+    const state = intakeState(selectedProject);
+    const confirmed = { ...(state.confirmed_fields ?? {}) };
+    if (method === "hum_default") {
+      delete confirmed.decking_allowance_sheets;
+    }
+    setDraft({
+      ...selectedProject,
+      decking_allowance_sheets:
+        method === "hum_default"
+          ? 4
+          : selectedProject.decking_allowance_sheets,
+      homeowner_facts: {
+        ...state,
+        confirmed_fields: confirmed,
+        decking_allowance_method: method,
+      },
+    });
+  }
+
+  async function runAiIntake(message = intakeMessage) {
+    if (!selectedProject) return;
+    const cleanMessage = message.trim();
+    if (cleanMessage.length < 2) return;
     setBusy("ai");
     setError("");
     setNotice("");
@@ -269,36 +436,29 @@ export default function HomeownerWorkspace({
         },
         body: JSON.stringify({
           projectId: selectedProject.id,
-          narrative: selectedProject.homeowner_notes,
+          message: cleanMessage,
         }),
       });
       const payload = (await response.json()) as {
         error?: string;
         interpretation: Project["ai_interpretation"];
         source: Project["ai_source"];
+        project: Project;
         notice?: string;
       };
       if (!response.ok) throw new Error(payload.error ?? "AI intake failed.");
-      setDraft({
-        ...selectedProject,
-        ai_interpretation: payload.interpretation,
-        ai_source: payload.source,
-      });
+      setDraft(payload.project);
       setProjects((current) =>
         current.map((project) =>
           project.id === selectedProject.id
-            ? {
-                ...project,
-                ai_interpretation: payload.interpretation,
-                ai_source: payload.source,
-                homeowner_notes: selectedProject.homeowner_notes,
-              }
+            ? payload.project
             : project,
         ),
       );
+      setIntakeMessage("");
       setNotice(
         payload.notice ??
-          "AI interpretation saved. Review it before using the estimator.",
+          "HUM saved your answer and filled only directly supported fields.",
       );
     } catch (caught) {
       setError(
@@ -584,8 +744,11 @@ export default function HomeownerWorkspace({
                   </div>
                   <h2>{project.title}</h2>
                   <p>
-                    {project.city}, CA · {project.footprint_sqft ?? "Area needed"} sq ft footprint ·{" "}
-                    {project.roof_pitch} pitch
+                    {project.city || "City needed"}, CA ·{" "}
+                    {project.footprint_sqft
+                      ? `${project.footprint_sqft} sq ft footprint`
+                      : "Footprint needed"}{" "}
+                    · {project.roof_pitch} pitch
                   </p>
                   <div className={styles.cardStats}>
                     <span>
@@ -638,9 +801,9 @@ export default function HomeownerWorkspace({
           {selectedProject && (
             <>
               <PageHeading
-                kicker="Homeowner facts + cautious interpretation"
-                title="Describe the roof once. Verify every fact."
-                copy="HUM separates what you entered, what AI interpreted, what the calculator derived, and which administrator-approved pricing version supplied cost assumptions."
+                kicker="Guided homeowner intake"
+                title="Tell HUM what you know. We’ll figure out what to ask next."
+                copy="Start in your own words. HUM fills only facts supported by what you said, asks one short follow-up at a time, and explains every roofing term before you have to answer it."
                 action={
                   <ProjectPicker
                     projects={projects}
@@ -652,14 +815,209 @@ export default function HomeownerWorkspace({
                   />
                 }
               />
-              <div className={styles.intakeLayout}>
-                <section className={styles.panel}>
+              <div className={styles.guidedIntakeLayout}>
+                <section className={styles.conversationPanel}>
                   <div className={styles.sectionHeading}>
                     <div>
-                      <p className={styles.kicker}>Verified by you</p>
-                      <h2>Project facts</h2>
+                      <p className={styles.kicker}>Start here · AI-guided</p>
+                      <h2>
+                        {conversation.length
+                          ? "Keep describing the project."
+                          : "What would you like done to your roof?"}
+                      </h2>
                     </div>
-                    <span className={styles.sourceTag}>Homeowner-provided</span>
+                    <span className={styles.sourceTag}>
+                      One question at a time
+                    </span>
+                  </div>
+                  {conversation.length > 0 ? (
+                    <div className={styles.chatThread} aria-live="polite">
+                      {conversation.slice(-8).map((message, index) => (
+                        <div
+                          className={
+                            message.role === "homeowner"
+                              ? styles.homeownerBubble
+                              : styles.humBubble
+                          }
+                          key={`${message.created_at}-${index}`}
+                        >
+                          <strong>
+                            {message.role === "homeowner" ? "You" : "HUM"}
+                          </strong>
+                          <p>{message.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={styles.intakeStarter}>
+                      <p>
+                        You do not need roofing vocabulary. Say what you have
+                        noticed, what you want done, and anything a roofer has
+                        already told you.
+                      </p>
+                      <div>
+                        {[
+                          "My roof is old and I think it needs replacement.",
+                          "I have a leak after heavy rain.",
+                          "A contractor already gave me some measurements.",
+                        ].map((example) => (
+                          <button
+                            type="button"
+                            key={example}
+                            onClick={() => setIntakeMessage(example)}
+                          >
+                            {example}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {nextQuestion && (
+                    <div className={styles.nextQuestion}>
+                      <span>
+                        {nextQuestion.field === "complete"
+                          ? "Ready for your review"
+                          : "Next question"}
+                      </span>
+                      <strong>{nextQuestion.question}</strong>
+                      <p>{nextQuestion.why_it_matters}</p>
+                      {nextQuestion.answer_help.length > 0 && (
+                        <div>
+                          {nextQuestion.answer_help.map((answer) => (
+                            <button
+                              type="button"
+                              key={answer}
+                              onClick={() => setIntakeMessage(answer)}
+                            >
+                              {answer}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <label className={styles.chatComposer}>
+                    <span>
+                      {conversation.length
+                        ? "Your answer"
+                        : "Describe the project in your own words"}
+                    </span>
+                    <textarea
+                      rows={4}
+                      maxLength={4000}
+                      value={intakeMessage}
+                      placeholder={
+                        nextQuestion?.field === "complete"
+                          ? "Add anything else HUM should know, or review the filled form below."
+                          : "Type what you know. “I’m not sure” is a valid answer."
+                      }
+                      onChange={(event) => setIntakeMessage(event.target.value)}
+                    />
+                  </label>
+                  <div className={styles.characterRow}>
+                    <span>{intakeMessage.length}/4,000</span>
+                    <div>
+                      {nextQuestion &&
+                        nextQuestion.field !== "complete" && (
+                          <button
+                            className={styles.secondaryButton}
+                            type="button"
+                            disabled={busy === "ai"}
+                            onClick={() => void runAiIntake("I’m not sure.")}
+                          >
+                            I’m not sure
+                          </button>
+                        )}
+                      <button
+                        className={styles.primaryButton}
+                        type="button"
+                        onClick={() => void runAiIntake()}
+                        disabled={
+                          intakeMessage.trim().length < 2 || busy === "ai"
+                        }
+                      >
+                        {busy === "ai"
+                          ? "Saving your answer…"
+                          : conversation.length
+                            ? "Send answer & fill form"
+                            : "Start guided intake"}
+                      </button>
+                    </div>
+                  </div>
+                  <div className={styles.aiBoundary}>
+                    <strong>What AI does:</strong> organize what you said,
+                    populate supported fields, and choose the next question.
+                    Pricing still comes only from HUM&apos;s versioned calculator.
+                  </div>
+                </section>
+
+                <aside className={styles.intakeProgressPanel}>
+                  <p className={styles.kicker}>Your intake progress</p>
+                  <div className={styles.progressValue}>
+                    <strong>{completedProgress}</strong>
+                    <span>of {progressFields.length} key items answered</span>
+                  </div>
+                  <div
+                    className={styles.progressTrack}
+                    role="progressbar"
+                    aria-label="Project intake progress"
+                    aria-valuemin={0}
+                    aria-valuemax={progressFields.length}
+                    aria-valuenow={completedProgress}
+                  >
+                    <span
+                      style={{
+                        width: `${(completedProgress / progressFields.length) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  {lastAutofilled.length > 0 && (
+                    <div className={styles.autoFillNotice}>
+                      <strong>Just filled from your answer</strong>
+                      <div>
+                        {lastAutofilled.map((field) => (
+                          <span key={field}>{intakeFieldLabels[field]}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className={styles.intakeKey}>
+                    <FieldStatus status="confirmed" />
+                    <span>Supported by something you entered</span>
+                    <FieldStatus status="not_sure" />
+                    <span>Kept as an assumption for review</span>
+                    <FieldStatus status="review" />
+                    <span>Still needs your attention</span>
+                  </div>
+                  <div className={styles.progressBoundary}>
+                    <strong>You never have to guess hidden damage.</strong>
+                    <p>
+                      Decking, flashing condition, and structural damage are
+                      verified on site. HUM labels temporary allowances instead
+                      of pretending they are known.
+                    </p>
+                  </div>
+                </aside>
+              </div>
+
+              <section className={styles.panel}>
+                <div className={styles.sectionHeading}>
+                  <div>
+                    <p className={styles.kicker}>Review what HUM filled</p>
+                    <h2>Project facts in plain language</h2>
+                  </div>
+                  <span className={styles.sourceTag}>
+                    You control every answer
+                  </span>
+                </div>
+
+                <div className={styles.formSection}>
+                  <div className={styles.formSectionHeading}>
+                    <span>1</span>
+                    <div>
+                      <h3>Project and location</h3>
+                      <p>Basic facts that identify the planning estimate.</p>
+                    </div>
                   </div>
                   <div className={styles.formGrid}>
                     <label className={`${styles.field} ${styles.fullField}`}>
@@ -667,23 +1025,41 @@ export default function HomeownerWorkspace({
                       <input
                         value={selectedProject.title}
                         maxLength={120}
-                        onChange={(event) => setField("title", event.target.value)}
+                        onChange={(event) =>
+                          setField("title", event.target.value)
+                        }
                       />
                     </label>
-                    <label className={styles.field}>
-                      <span>City</span>
+                    <GuidedField
+                      id="project-city"
+                      label="City"
+                      status={statusFor("city")}
+                      definition="The city where the home is located. A street address is not needed here."
+                      howToFind="Use the city shown on your mail or property record."
+                    >
                       <input
+                        id="project-city"
                         value={selectedProject.city}
                         maxLength={80}
-                        onChange={(event) => setField("city", event.target.value)}
+                        placeholder="Example: Eureka"
+                        onChange={(event) =>
+                          setField("city", event.target.value)
+                        }
                       />
-                    </label>
-                    <label className={styles.field}>
-                      <span>ZIP code</span>
+                    </GuidedField>
+                    <GuidedField
+                      id="project-zip"
+                      label="ZIP code"
+                      status={statusFor("postal_code")}
+                      definition="The five-digit ZIP helps HUM use the correct local pricing region."
+                      howToFind="Use the ZIP from your mail, property listing, or a map search."
+                    >
                       <input
+                        id="project-zip"
                         inputMode="numeric"
                         pattern="[0-9]{5}"
                         maxLength={5}
+                        placeholder="95501"
                         value={selectedProject.postal_code ?? ""}
                         onChange={(event) =>
                           setField(
@@ -692,10 +1068,16 @@ export default function HomeownerWorkspace({
                           )
                         }
                       />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Project type</span>
+                    </GuidedField>
+                    <GuidedField
+                      id="project-type"
+                      label="What kind of help do you need?"
+                      status={statusFor("project_type")}
+                      definition="A repair fixes a limited problem. A replacement removes and rebuilds the roof covering. Choose inspection if you need a professional to determine the scope."
+                      howToFind="If you are unsure, choose “I’m not sure yet.” HUM will keep the scope open."
+                    >
                       <select
+                        id="project-type"
                         value={selectedProject.project_type}
                         onChange={(event) =>
                           setField(
@@ -704,77 +1086,60 @@ export default function HomeownerWorkspace({
                           )
                         }
                       >
-                        <option value="replacement">Replacement</option>
-                        <option value="repair">Repair</option>
-                        <option value="inspection">Inspection / unknown scope</option>
-                        <option value="unknown">Not sure</option>
+                        <option value="unknown">I’m not sure yet</option>
+                        <option value="replacement">Full replacement</option>
+                        <option value="repair">Repair a specific problem</option>
+                        <option value="inspection">Inspection first</option>
                       </select>
-                    </label>
-                    <label className={styles.field}>
-                      <span>Home footprint (sq ft)</span>
+                    </GuidedField>
+                    <GuidedField
+                      id="project-footprint"
+                      label="Home footprint (square feet)"
+                      status={statusFor("footprint_sqft")}
+                      definition="The footprint is the ground-floor area covered by the roof—not the roof surface and not always the total living area."
+                      howToFind="Check Zillow/Redfin or county records. For a simple home, multiply outside length × width. For a 2,000 sq ft two-story home, a rough footprint may be about 1,000 sq ft."
+                    >
                       <input
+                        id="project-footprint"
                         type="number"
                         min={100}
                         max={50000}
+                        placeholder="Example: 1500"
                         value={selectedProject.footprint_sqft ?? ""}
                         onChange={(event) =>
                           setField(
                             "footprint_sqft",
-                            event.target.value ? Number(event.target.value) : null,
+                            event.target.value
+                              ? Number(event.target.value)
+                              : null,
                           )
                         }
                       />
-                      <small>HUM applies a transparent pitch and waste factor.</small>
-                    </label>
-                    <label className={styles.field}>
-                      <span>Roof pitch</span>
+                    </GuidedField>
+                  </div>
+                </div>
+
+                <div className={styles.formSection}>
+                  <div className={styles.formSectionHeading}>
+                    <span>2</span>
+                    <div>
+                      <h3>What you can see from the ground</h3>
+                      <p>
+                        Visual descriptions are enough. Do not climb onto the
+                        roof to answer these.
+                      </p>
+                    </div>
+                  </div>
+                  <div className={styles.formGrid}>
+                    <GuidedField
+                      id="roof-material"
+                      label="Current roof material"
+                      status={statusFor("roof_material")}
+                      definition="The outer material you see: asphalt shingles, metal panels, or tile."
+                      howToFind="Look from the ground or compare with listing photos. Architectural shingles look thicker and more layered than flat three-tab shingles."
+                    >
                       <select
-                        value={selectedProject.roof_pitch}
-                        onChange={(event) =>
-                          setField(
-                            "roof_pitch",
-                            event.target.value as Project["roof_pitch"],
-                          )
-                        }
-                      >
-                        <option value="low">Low · under about 4:12</option>
-                        <option value="moderate">Moderate · about 4:12–7:12</option>
-                        <option value="steep">Steep · above about 7:12</option>
-                      </select>
-                    </label>
-                    <label className={styles.field}>
-                      <span>Stories</span>
-                      <select
-                        value={selectedProject.stories}
-                        onChange={(event) =>
-                          setField("stories", Number(event.target.value))
-                        }
-                      >
-                        {[1, 2, 3, 4].map((value) => (
-                          <option key={value} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className={styles.field}>
-                      <span>Existing roof layers</span>
-                      <select
-                        value={selectedProject.existing_layers}
-                        onChange={(event) =>
-                          setField("existing_layers", Number(event.target.value))
-                        }
-                      >
-                        {[0, 1, 2, 3, 4].map((value) => (
-                          <option key={value} value={value}>
-                            {value === 0 ? "Unknown / none" : value}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className={styles.field}>
-                      <span>Roof material</span>
-                      <select
+                        id="roof-material"
                         value={selectedProject.roof_material}
                         onChange={(event) =>
                           setField(
@@ -783,32 +1148,120 @@ export default function HomeownerWorkspace({
                           )
                         }
                       >
-                        <option value="architectural_shingle">Architectural shingle</option>
-                        <option value="three_tab">Three-tab shingle</option>
+                        <option value="unknown">I’m not sure</option>
+                        <option value="architectural_shingle">
+                          Dimensional / architectural shingles
+                        </option>
+                        <option value="three_tab">
+                          Flat three-tab shingles
+                        </option>
                         <option value="metal">Metal</option>
                         <option value="tile">Tile</option>
-                        <option value="unknown">Not sure</option>
                       </select>
-                    </label>
-                    <label className={styles.field}>
-                      <span>Property access</span>
+                    </GuidedField>
+                    <GuidedField
+                      id="roof-pitch"
+                      label="Roof slope (pitch)"
+                      status={statusFor("roof_pitch")}
+                      definition="Pitch means how steep the roof is. A 6:12 pitch rises 6 inches for every 12 inches across."
+                      howToFind="From the ground choose low, normal, or very steep. A contractor report may list a number such as 4:12 or 8:12."
+                    >
                       <select
-                        value={selectedProject.access_level}
+                        id="roof-pitch"
+                        value={selectedProject.roof_pitch}
                         onChange={(event) =>
                           setField(
-                            "access_level",
-                            event.target.value as Project["access_level"],
+                            "roof_pitch",
+                            event.target.value as Project["roof_pitch"],
                           )
                         }
                       >
-                        <option value="easy">Easy staging</option>
-                        <option value="standard">Standard</option>
-                        <option value="difficult">Difficult access / hand carry</option>
+                        <option value="low">
+                          Low / nearly flat · under about 4:12
+                        </option>
+                        <option value="moderate">
+                          Normal slope · about 4:12–7:12
+                        </option>
+                        <option value="steep">
+                          Very steep · above about 7:12
+                        </option>
                       </select>
-                    </label>
-                    <label className={styles.field}>
-                      <span>Roof complexity</span>
+                      {!confirmedFields.roof_pitch && (
+                        <button
+                          className={styles.notSureButton}
+                          type="button"
+                          onClick={() => markDeferred("roof_pitch")}
+                        >
+                          I can’t tell from the ground
+                        </button>
+                      )}
+                    </GuidedField>
+                    <GuidedField
+                      id="roof-stories"
+                      label="Stories below this roof"
+                      status={statusFor("stories")}
+                      definition="The number of above-ground levels directly under the main roof."
+                      howToFind="Count the visible floors from the lowest ground level where crews would work."
+                    >
                       <select
+                        id="roof-stories"
+                        value={selectedProject.stories}
+                        onChange={(event) =>
+                          setField("stories", Number(event.target.value))
+                        }
+                      >
+                        {[1, 2, 3, 4].map((value) => (
+                          <option key={value} value={value}>
+                            {value} {value === 1 ? "story" : "stories"}
+                          </option>
+                        ))}
+                      </select>
+                    </GuidedField>
+                    <GuidedField
+                      id="roof-layers"
+                      label="Existing roof layers"
+                      status={statusFor("existing_layers")}
+                      definition="A layer is one complete roof covering installed over the wood decking. Some homes have new shingles placed over an older layer."
+                      howToFind="Check an old invoice, permit, or ask a roofer to inspect the roof edge. If you do not know, HUM uses one layer as a visible planning assumption."
+                    >
+                      <select
+                        id="roof-layers"
+                        value={
+                          deferredFields.has("existing_layers")
+                            ? "unknown"
+                            : selectedProject.existing_layers
+                        }
+                        onChange={(event) => {
+                          if (event.target.value === "unknown") {
+                            setField("existing_layers", 1, false);
+                            markDeferred("existing_layers");
+                          } else {
+                            setField(
+                              "existing_layers",
+                              Number(event.target.value),
+                            );
+                          }
+                        }}
+                      >
+                        <option value="unknown">
+                          I don’t know · assume one for planning
+                        </option>
+                        {[1, 2, 3, 4].map((value) => (
+                          <option key={value} value={value}>
+                            {value} {value === 1 ? "layer" : "layers"}
+                          </option>
+                        ))}
+                      </select>
+                    </GuidedField>
+                    <GuidedField
+                      id="roof-shape"
+                      label="Roof shape"
+                      status={statusFor("complexity")}
+                      definition="A simple roof has two main slopes. Valleys are inside corners where slopes meet; hips are outside corners; dormers are smaller roofed sections projecting from the main roof."
+                      howToFind="Look at the roofline from different sides or use aerial listing photos. More peaks and intersecting sections mean more complexity."
+                    >
+                      <select
+                        id="roof-shape"
                         value={selectedProject.complexity}
                         onChange={(event) =>
                           setField(
@@ -817,153 +1270,239 @@ export default function HomeownerWorkspace({
                           )
                         }
                       >
-                        <option value="simple">Simple gable</option>
-                        <option value="standard">Standard</option>
-                        <option value="complex">Complex hips, valleys, or dormers</option>
+                        <option value="simple">
+                          Simple · mostly two slopes
+                        </option>
+                        <option value="standard">
+                          Some hips, valleys, or sections
+                        </option>
+                        <option value="complex">
+                          Many peaks, valleys, or dormers
+                        </option>
                       </select>
-                    </label>
-                    <label className={styles.field}>
-                      <span>Chimneys</span>
+                    </GuidedField>
+                    <GuidedField
+                      id="roof-access"
+                      label="Property access"
+                      status={statusFor("access_level")}
+                      definition="Access describes how close a truck, dumpster, and material delivery can get to the house."
+                      howToFind="Think about driveway space, gates, stairs, narrow side yards, landscaping, and how far materials must be carried."
+                    >
+                      <select
+                        id="roof-access"
+                        value={selectedProject.access_level}
+                        onChange={(event) =>
+                          setField(
+                            "access_level",
+                            event.target.value as Project["access_level"],
+                          )
+                        }
+                      >
+                        <option value="easy">
+                          Easy · vehicles can stage close by
+                        </option>
+                        <option value="standard">
+                          Normal driveway / side-yard access
+                        </option>
+                        <option value="difficult">
+                          Difficult · tight gate, stairs, or long carry
+                        </option>
+                      </select>
+                    </GuidedField>
+                    <GuidedField
+                      id="chimneys"
+                      label="Chimneys through the roof"
+                      status={statusFor("chimney_count")}
+                      definition="Count only chimneys that pass through a roof surface. Each needs waterproof flashing around it."
+                      howToFind="Look from the ground or use an aerial photo. Enter 0 if there are none."
+                    >
                       <input
+                        id="chimneys"
                         type="number"
                         min={0}
                         max={12}
                         value={selectedProject.chimney_count}
                         onChange={(event) =>
-                          setField("chimney_count", Number(event.target.value))
+                          setField(
+                            "chimney_count",
+                            Number(event.target.value),
+                          )
                         }
                       />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Skylights</span>
+                    </GuidedField>
+                    <GuidedField
+                      id="skylights"
+                      label="Skylights through the roof"
+                      status={statusFor("skylight_count")}
+                      definition="A skylight is a window installed through the roof. Each opening needs flashing."
+                      howToFind="Count visible roof windows from inside the home or an aerial photo. Enter 0 if there are none."
+                    >
                       <input
+                        id="skylights"
                         type="number"
                         min={0}
                         max={30}
                         value={selectedProject.skylight_count}
                         onChange={(event) =>
-                          setField("skylight_count", Number(event.target.value))
-                        }
-                      />
-                    </label>
-                    <label className={styles.field}>
-                      <span>Decking sheets carried as allowance</span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={selectedProject.decking_allowance_sheets}
-                        onChange={(event) =>
                           setField(
-                            "decking_allowance_sheets",
+                            "skylight_count",
                             Number(event.target.value),
                           )
                         }
                       />
-                    </label>
-                    <label className={styles.checkboxField}>
-                      <input
-                        type="checkbox"
-                        checked={selectedProject.active_leak}
-                        onChange={(event) =>
-                          setField("active_leak", event.target.checked)
-                        }
-                      />
-                      <span>
-                        <strong>Active leak reported</strong>
-                        This affects confidence, not an invented damage quantity.
-                      </span>
-                    </label>
-                  </div>
-                  <div className={styles.panelActions}>
-                    <button
-                      className={styles.primaryButton}
-                      onClick={saveProject}
-                      disabled={busy === "save"}
-                    >
-                      {busy === "save" ? "Saving…" : "Save verified facts"}
-                    </button>
-                    <button
-                      className={styles.secondaryButton}
-                      onClick={generateEstimate}
-                      disabled={!selectedProject.footprint_sqft || Boolean(busy)}
-                    >
-                      Generate line-item estimate
-                    </button>
-                  </div>
-                </section>
-
-                <aside className={styles.aiPanel}>
-                  <p className={styles.kicker}>AI interprets · code calculates</p>
-                  <h2>Tell HUM what is going on.</h2>
-                  <p>
-                    Include roof age, leaks, storm damage, materials, access,
-                    and anything a contractor previously told you. Do not
-                    include names, phone numbers, or a street address.
-                  </p>
-                  <textarea
-                    maxLength={4000}
-                    value={selectedProject.homeowner_notes}
-                    placeholder="Example: The roof is about 18 years old. We have an active leak near the chimney after heavy rain…"
-                    onChange={(event) =>
-                      setField("homeowner_notes", event.target.value)
-                    }
-                  />
-                  <div className={styles.characterRow}>
-                    <span>{selectedProject.homeowner_notes.length}/4,000</span>
-                    <button
-                      type="button"
-                      onClick={runAiIntake}
-                      disabled={
-                        selectedProject.homeowner_notes.trim().length < 20 ||
-                        busy === "ai"
-                      }
-                    >
-                      {busy === "ai" ? "Interpreting…" : "Interpret description"}
-                    </button>
-                  </div>
-                  {selectedProject.ai_interpretation && (
-                    <div className={styles.aiResult}>
-                      <div className={styles.resultSource}>
-                        <strong>
-                          {selectedProject.ai_source === "openai"
-                            ? "OpenAI structured interpretation"
-                            : "Deterministic fallback"}
-                        </strong>
-                        <span>Suggestion · review required</span>
+                    </GuidedField>
+                    <div className={`${styles.guidedField} ${styles.fullField}`}>
+                      <div className={styles.guidedFieldTop}>
+                        <strong>Is there an active leak?</strong>
+                        <FieldStatus status={statusFor("active_leak")} />
                       </div>
-                      <p>{selectedProject.ai_interpretation.summary}</p>
-                      <h3>Directly recognized facts</h3>
-                      {selectedProject.ai_interpretation.facts.length ? (
-                        <ul>
-                          {selectedProject.ai_interpretation.facts.map((fact, index) => (
-                            <li key={`${fact.field}-${index}`}>
-                              <strong>{fact.field.replaceAll("_", " ")}</strong>
-                              <span>{fact.value}</span>
-                              <small>“{fact.source_text}”</small>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p>No direct facts were safe to extract.</p>
-                      )}
-                      <h3>Still needed</h3>
-                      <div className={styles.chipList}>
-                        {selectedProject.ai_interpretation.missing_information.map(
-                          (item) => (
-                            <span key={item}>{item}</span>
-                          ),
-                        )}
+                      <p className={styles.fieldDefinition}>
+                        An active leak means water is entering the home now or
+                        after recent rain. Old stains with no current moisture
+                        can be described in the chat instead.
+                      </p>
+                      <div className={styles.segmentedChoice}>
+                        <button
+                          type="button"
+                          className={
+                            confirmedFields.active_leak &&
+                            selectedProject.active_leak
+                              ? styles.segmentedActive
+                              : ""
+                          }
+                          onClick={() => setField("active_leak", true)}
+                        >
+                          Yes, water is getting in
+                        </button>
+                        <button
+                          type="button"
+                          className={
+                            confirmedFields.active_leak &&
+                            !selectedProject.active_leak
+                              ? styles.segmentedActive
+                              : ""
+                          }
+                          onClick={() => setField("active_leak", false)}
+                        >
+                          No active leak
+                        </button>
+                        <button
+                          type="button"
+                          className={
+                            deferredFields.has("active_leak")
+                              ? styles.segmentedActive
+                              : ""
+                          }
+                          onClick={() => markDeferred("active_leak")}
+                        >
+                          I’m not sure
+                        </button>
                       </div>
                     </div>
-                  )}
-                  <div className={styles.aiBoundary}>
-                    <strong>AI cannot confirm</strong>
-                    Hidden damage, code compliance, structural condition, exact
-                    dimensions, unit costs, labor hours, or price.
                   </div>
-                </aside>
-              </div>
+                </div>
+
+                <div className={styles.formSection}>
+                  <div className={styles.formSectionHeading}>
+                    <span>3</span>
+                    <div>
+                      <h3>Hidden wood beneath the roof covering</h3>
+                      <p>
+                        This is where HUM uses an allowance instead of asking
+                        you to guess.
+                      </p>
+                    </div>
+                  </div>
+                  <div className={styles.deckingExplainer}>
+                    <div>
+                      <p className={styles.kicker}>What is roof decking?</p>
+                      <h3>The wood sheets directly under the shingles or metal.</h3>
+                      <p>
+                        Decking is usually 4 × 8 ft plywood or OSB fastened to
+                        the roof framing. Rotten or damaged sheets often cannot
+                        be counted until the old roof is removed.
+                      </p>
+                    </div>
+                    <div className={styles.allowanceChoices}>
+                      <label>
+                        <input
+                          type="radio"
+                          name="decking-method"
+                          checked={deckingMethod === "hum_default"}
+                          onChange={() => setDeckingMethod("hum_default")}
+                        />
+                        <span>
+                          <strong>
+                            I don’t know · use HUM’s 4-sheet planning allowance
+                          </strong>
+                          Recommended for the first estimate. This is a reserve,
+                          not a prediction of hidden damage.
+                        </span>
+                      </label>
+                      <label>
+                        <input
+                          type="radio"
+                          name="decking-method"
+                          checked={deckingMethod === "contractor_quantity"}
+                          onChange={() =>
+                            setDeckingMethod("contractor_quantity")
+                          }
+                        />
+                        <span>
+                          <strong>A contractor gave me a sheet quantity</strong>
+                          Use a written inspection or quote—do not estimate this
+                          yourself.
+                        </span>
+                      </label>
+                      {deckingMethod === "contractor_quantity" && (
+                        <label className={styles.field}>
+                          <span>Contractor-provided number of sheets</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={selectedProject.decking_allowance_sheets}
+                            onChange={(event) =>
+                              setField(
+                                "decking_allowance_sheets",
+                                Number(event.target.value),
+                              )
+                            }
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.panelActions}>
+                  <div className={styles.saveReadiness}>
+                    <strong>
+                      {intakeReady
+                        ? "Ready for a first planning estimate"
+                        : "Confirm the project type and home footprint first"}
+                    </strong>
+                    <span>
+                      Uncertain items stay visible as assumptions and reduce
+                      confidence.
+                    </span>
+                  </div>
+                  <button
+                    className={styles.secondaryButton}
+                    onClick={saveProject}
+                    disabled={busy === "save"}
+                  >
+                    {busy === "save" ? "Saving…" : "Save & finish later"}
+                  </button>
+                  <button
+                    className={styles.primaryButton}
+                    onClick={generateEstimate}
+                    disabled={!intakeReady || Boolean(busy)}
+                  >
+                    Generate line-item estimate
+                  </button>
+                </div>
+              </section>
             </>
           )}
         </ProjectRequired>
@@ -1363,6 +1902,59 @@ export default function HomeownerWorkspace({
           )}
         </ProjectRequired>
       )}
+    </div>
+  );
+}
+
+type FieldStatusValue = "confirmed" | "not_sure" | "review";
+
+function FieldStatus({ status }: { status: FieldStatusValue }) {
+  return (
+    <span
+      className={`${styles.fieldStatus} ${
+        status === "confirmed"
+          ? styles.fieldConfirmed
+          : status === "not_sure"
+            ? styles.fieldNotSure
+            : styles.fieldReview
+      }`}
+    >
+      {status === "confirmed"
+        ? "Confirmed"
+        : status === "not_sure"
+          ? "Not sure"
+          : "Review"}
+    </span>
+  );
+}
+
+function GuidedField({
+  id,
+  label,
+  status,
+  definition,
+  howToFind,
+  children,
+}: {
+  id: string;
+  label: string;
+  status: FieldStatusValue;
+  definition: string;
+  howToFind: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={styles.guidedField}>
+      <div className={styles.guidedFieldTop}>
+        <label htmlFor={id}>{label}</label>
+        <FieldStatus status={status} />
+      </div>
+      <p className={styles.fieldDefinition}>{definition}</p>
+      {children}
+      <details className={styles.fieldHelp}>
+        <summary>How do I find this?</summary>
+        <p>{howToFind}</p>
+      </details>
     </div>
   );
 }

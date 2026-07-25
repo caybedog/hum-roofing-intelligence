@@ -41,6 +41,26 @@ export async function POST(request: Request) {
       422,
     );
   }
+  const confirmedFields =
+    project.homeowner_facts &&
+    typeof project.homeowner_facts === "object" &&
+    "confirmed_fields" in project.homeowner_facts
+      ? project.homeowner_facts.confirmed_fields
+      : null;
+  if (
+    !confirmedFields ||
+    typeof confirmedFields !== "object" ||
+    !("footprint_sqft" in confirmedFields) ||
+    !("project_type" in confirmedFields)
+  ) {
+    return noStoreJson(
+      {
+        error:
+          "Confirm the project type and home footprint in the guided intake before estimating.",
+      },
+      422,
+    );
+  }
 
   const { data: pricingVersion, error: versionError } = await client
     .from("pricing_versions")
