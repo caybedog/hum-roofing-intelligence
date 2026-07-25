@@ -346,6 +346,8 @@ export type ContractorQuote = {
   allowance_amount: number;
   other_amount: number;
   total_amount: number;
+  site_observations: Record<string, unknown>;
+  builder_inputs: Record<string, unknown>;
   scope_summary: string;
   exclusions: string;
   quote_reference: string | null;

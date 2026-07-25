@@ -24,14 +24,39 @@ import {
   buildPilotEvidenceScope,
   onlyRealProjectRows,
 } from "./pilot-evidence.mjs";
+import {
+  buildScopeSummary,
+  calculateQuoteBuilder,
+} from "./quote-builder.mjs";
 
 type QuoteDraft = {
-  material: string;
-  labor: string;
-  tearoffDisposal: string;
-  permitDelivery: string;
+  roofAreaSqft: string;
+  wastePercent: string;
+  existingLayers: string;
+  pitch: string;
+  access: string;
+  deckingSheets: string;
+  ridgeFeet: string;
+  valleyFeet: string;
+  chimneyCount: string;
+  skylightCount: string;
+  siteNotes: string;
+  materialSystem: string;
+  materialPerSquare: string;
+  crewSize: string;
+  laborDays: string;
+  hoursPerDay: string;
+  hourlyRate: string;
+  tearoffPerSquare: string;
+  disposalFee: string;
+  permitFee: string;
+  deliveryFee: string;
+  deckingSheetCost: string;
   allowance: string;
   other: string;
+  overheadPercent: string;
+  profitMarginPercent: string;
+  scopeSelections: string[];
   scope: string;
   exclusions: string;
   reference: string;
@@ -43,12 +68,43 @@ type QuoteDraft = {
 };
 
 const blankQuote: QuoteDraft = {
-  material: "",
-  labor: "",
-  tearoffDisposal: "",
-  permitDelivery: "",
+  roofAreaSqft: "",
+  wastePercent: "10",
+  existingLayers: "1",
+  pitch: "moderate",
+  access: "standard",
+  deckingSheets: "0",
+  ridgeFeet: "",
+  valleyFeet: "",
+  chimneyCount: "0",
+  skylightCount: "0",
+  siteNotes: "",
+  materialSystem: "architectural_shingles",
+  materialPerSquare: "",
+  crewSize: "",
+  laborDays: "",
+  hoursPerDay: "8",
+  hourlyRate: "",
+  tearoffPerSquare: "",
+  disposalFee: "",
+  permitFee: "",
+  deliveryFee: "",
+  deckingSheetCost: "",
   allowance: "",
   other: "",
+  overheadPercent: "10",
+  profitMarginPercent: "20",
+  scopeSelections: [
+    "protect_property",
+    "tear_off",
+    "inspect_deck",
+    "underlayment",
+    "ice_water",
+    "flashing",
+    "roofing",
+    "cleanup",
+    "warranty",
+  ],
   scope: "",
   exclusions: "",
   reference: "",
@@ -58,6 +114,20 @@ const blankQuote: QuoteDraft = {
   reasonAmount: "",
   reasonExplanation: "",
 };
+
+const scopeOptions = [
+  ["protect_property", "Property protection", "Protect landscaping, siding, and work areas."],
+  ["tear_off", "Tear-off", "Remove and dispose of the existing roof system."],
+  ["inspect_deck", "Deck inspection", "Inspect the exposed sheathing before covering it."],
+  ["replace_decking", "Decking replacement", "Use the stated sheet allowance for damaged decking."],
+  ["underlayment", "Underlayment", "Install the selected code-compliant underlayment."],
+  ["ice_water", "Ice and water protection", "Protect required valleys, eaves, and penetrations."],
+  ["flashing", "Flashing and pipe boots", "Replace or install the included flashing details."],
+  ["ventilation", "Roof ventilation", "Complete the ventilation work included in the quote."],
+  ["roofing", "Roofing system", "Install the selected finished roofing material."],
+  ["cleanup", "Cleanup and haul-off", "Include debris removal and a magnetic nail sweep."],
+  ["warranty", "Warranty documents", "Provide stated workmanship and manufacturer coverage."],
+] as const;
 
 const money = (value: number | null | undefined) =>
   new Intl.NumberFormat("en-US", {
@@ -264,6 +334,8 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
   const selectedEnrollment =
     enrollments.find((item) => item.project_id === selectedId) ?? null;
   const selectedQuotes = quotes.filter((quote) => quote.project_id === selectedId);
+  const contractorQuote =
+    selectedQuotes.find((quote) => quote.contractor_id === profile.id) ?? null;
   const selectedOutcome =
     outcomes.find((outcome) => outcome.project_id === selectedId) ?? null;
   const contractorProfile = contractorProfiles.find(
@@ -295,6 +367,85 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
       }),
     [selectedEstimate, selectedQuotes],
   );
+
+  const quoteCalculation = useMemo(
+    () => calculateQuoteBuilder(quoteDraft),
+    [quoteDraft],
+  );
+
+  const generatedScope = useMemo(
+    () =>
+      buildScopeSummary({
+        materialSystem: quoteDraft.materialSystem,
+        roofingSquares: quoteCalculation.roofingSquares,
+        selections: quoteDraft.scopeSelections,
+      }),
+    [
+      quoteCalculation.roofingSquares,
+      quoteDraft.materialSystem,
+      quoteDraft.scopeSelections,
+    ],
+  );
+
+  useEffect(() => {
+    if (profile.role !== "contractor" || !selectedProject) return;
+    const timeout = window.setTimeout(() => {
+      if (contractorQuote) {
+        const builder = contractorQuote.builder_inputs ?? {};
+        const site = contractorQuote.site_observations ?? {};
+        const savedReason = reasons.find(
+          (reason) => reason.quote_id === contractorQuote.id,
+        );
+        const savedSelections = (builder as Partial<QuoteDraft>).scopeSelections;
+        setQuoteDraft({
+          ...blankQuote,
+          ...(builder as Partial<QuoteDraft>),
+          ...(site as Partial<QuoteDraft>),
+          scope: contractorQuote.scope_summary,
+          exclusions: contractorQuote.exclusions,
+          reference: contractorQuote.quote_reference ?? "",
+          validUntil: contractorQuote.valid_until ?? "",
+          reasonCode: savedReason?.reason_code ?? blankQuote.reasonCode,
+          reasonDirection:
+            savedReason?.direction ?? blankQuote.reasonDirection,
+          reasonAmount: savedReason?.amount_effect?.toString() ?? "",
+          reasonExplanation: savedReason?.explanation ?? "",
+          scopeSelections: Array.isArray(savedSelections)
+            ? savedSelections
+            : blankQuote.scopeSelections,
+        });
+        return;
+      }
+
+      const expectedRoofArea =
+        selectedEstimate?.calculation_result.scenarios.expected.roofAreaSqft ??
+        selectedProject.footprint_sqft ??
+        "";
+      setQuoteDraft({
+        ...blankQuote,
+        roofAreaSqft: String(expectedRoofArea),
+        existingLayers: String(selectedProject.existing_layers || 1),
+        pitch: selectedProject.roof_pitch,
+        access: selectedProject.access_level,
+        deckingSheets: String(
+          selectedProject.decking_allowance_sheets ?? 0,
+        ),
+        chimneyCount: String(selectedProject.chimney_count ?? 0),
+        skylightCount: String(selectedProject.skylight_count ?? 0),
+        materialSystem:
+          selectedProject.roof_material === "unknown"
+            ? blankQuote.materialSystem
+            : selectedProject.roof_material,
+      });
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [
+    contractorQuote,
+    profile.role,
+    reasons,
+    selectedEstimate,
+    selectedProject,
+  ]);
 
   async function recordEvent(
     eventName: PilotEvent["event_name"],
@@ -392,29 +543,89 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
     setBusy("");
   }
 
+  function updateQuote<K extends keyof QuoteDraft>(
+    field: K,
+    value: QuoteDraft[K],
+  ) {
+    setQuoteDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function toggleScopeItem(item: string) {
+    setQuoteDraft((current) => ({
+      ...current,
+      scope: "",
+      scopeSelections: current.scopeSelections.includes(item)
+        ? current.scopeSelections.filter((selection) => selection !== item)
+        : [...current.scopeSelections, item],
+    }));
+  }
+
   async function saveQuote(status: "draft" | "submitted") {
     if (!selectedProject || !selectedEstimate) {
       setError("This project needs a saved HUM estimate before quote capture.");
       return;
     }
-    if (quoteDraft.scope.trim().length < 10) {
+    const scopeSummary = quoteDraft.scope.trim() || generatedScope;
+    if (scopeSummary.length < 10) {
       setError("Add a clear scope summary before saving the quote.");
+      return;
+    }
+    if (quoteCalculation.roofingSquares <= 0) {
+      setError("Add the measured roof area before saving the quote.");
+      return;
+    }
+    if (quoteCalculation.totalAmount <= 0) {
+      setError("Complete the cost fields so the quote has a total.");
       return;
     }
     setBusy(`quote-${status}`);
     setError("");
+    const {
+      roofAreaSqft,
+      wastePercent,
+      existingLayers,
+      pitch,
+      access,
+      deckingSheets,
+      ridgeFeet,
+      valleyFeet,
+      chimneyCount,
+      skylightCount,
+      siteNotes,
+      ...builderInputs
+    } = quoteDraft;
     const quotePayload = {
       project_id: selectedProject.id,
       estimate_id: selectedEstimate.id,
       contractor_id: profile.id,
       status,
-      material_amount: numberValue(quoteDraft.material),
-      labor_amount: numberValue(quoteDraft.labor),
-      tearoff_disposal_amount: numberValue(quoteDraft.tearoffDisposal),
-      permit_delivery_amount: numberValue(quoteDraft.permitDelivery),
-      allowance_amount: numberValue(quoteDraft.allowance),
-      other_amount: numberValue(quoteDraft.other),
-      scope_summary: quoteDraft.scope.trim(),
+      material_amount: quoteCalculation.materialAmount,
+      labor_amount: quoteCalculation.laborAmount,
+      tearoff_disposal_amount: quoteCalculation.tearoffDisposalAmount,
+      permit_delivery_amount: quoteCalculation.permitDeliveryAmount,
+      allowance_amount: quoteCalculation.allowanceAmount,
+      other_amount: quoteCalculation.otherAmount,
+      site_observations: {
+        roofAreaSqft,
+        wastePercent,
+        existingLayers,
+        pitch,
+        access,
+        deckingSheets,
+        ridgeFeet,
+        valleyFeet,
+        chimneyCount,
+        skylightCount,
+        siteNotes,
+      },
+      builder_inputs: {
+        ...builderInputs,
+        builderVersion: 1,
+        calculatedRoofingSquares: quoteCalculation.roofingSquares,
+        overheadAmount: quoteCalculation.overheadAmount,
+        profitAmount: quoteCalculation.profitAmount,
+      },
+      scope_summary: scopeSummary,
       exclusions: quoteDraft.exclusions.trim(),
       quote_reference: quoteDraft.reference.trim() || null,
       valid_until: quoteDraft.validUntil || null,
@@ -1022,219 +1233,549 @@ export default function PilotWorkspace({ profile }: { profile: Profile }) {
               onPrint={printBrief}
             />
 
-            <section className={styles.pilotPanel}>
-              <p className={styles.kicker}>Actual quote capture</p>
-              <h2>Itemize what you would really quote.</h2>
-              {existingQuote && (
-                <p className={styles.pilotCallout}>
-                  Saved quote: {money(existingQuote.total_amount)} ·{" "}
-                  {existingQuote.status}
-                </p>
-              )}
-              <div className={styles.pilotAmountGrid}>
-                <MoneyField
-                  label="Materials"
-                  value={quoteDraft.material}
-                  onChange={(value) =>
-                    setQuoteDraft((current) => ({ ...current, material: value }))
-                  }
-                />
-                <MoneyField
-                  label="Labor"
-                  value={quoteDraft.labor}
-                  onChange={(value) =>
-                    setQuoteDraft((current) => ({ ...current, labor: value }))
-                  }
-                />
-                <MoneyField
-                  label="Tear-off + disposal"
-                  value={quoteDraft.tearoffDisposal}
-                  onChange={(value) =>
-                    setQuoteDraft((current) => ({
-                      ...current,
-                      tearoffDisposal: value,
-                    }))
-                  }
-                />
-                <MoneyField
-                  label="Permit + delivery"
-                  value={quoteDraft.permitDelivery}
-                  onChange={(value) =>
-                    setQuoteDraft((current) => ({
-                      ...current,
-                      permitDelivery: value,
-                    }))
-                  }
-                />
-                <MoneyField
-                  label="Allowances"
-                  value={quoteDraft.allowance}
-                  onChange={(value) =>
-                    setQuoteDraft((current) => ({ ...current, allowance: value }))
-                  }
-                />
-                <MoneyField
-                  label="Other"
-                  value={quoteDraft.other}
-                  onChange={(value) =>
-                    setQuoteDraft((current) => ({ ...current, other: value }))
-                  }
-                />
+            <section className={styles.quoteBuilder}>
+              <div className={styles.quoteBuilderHeader}>
+                <div>
+                  <p className={styles.kicker}>On-site quote builder</p>
+                  <h2>Inspect once. Build the quote as you go.</h2>
+                  <p>
+                    Fill in what you measure on site. HUM calculates quantities,
+                    cost groups, overhead, profit, and the homeowner quote
+                    immediately.
+                  </p>
+                </div>
+                {existingQuote && (
+                  <span className={styles.savedQuoteBadge}>
+                    {existingQuote.status} · {money(existingQuote.total_amount)}
+                  </span>
+                )}
               </div>
-              <label className={styles.field}>
-                <span>Scope summary</span>
-                <textarea
-                  rows={5}
-                  value={quoteDraft.scope}
-                  onChange={(event) =>
-                    setQuoteDraft((current) => ({
-                      ...current,
-                      scope: event.target.value,
-                    }))
-                  }
-                  placeholder="Describe the included roofing work and material system."
-                />
-              </label>
-              <label className={styles.field}>
-                <span>Exclusions</span>
-                <textarea
-                  rows={3}
-                  value={quoteDraft.exclusions}
-                  onChange={(event) =>
-                    setQuoteDraft((current) => ({
-                      ...current,
-                      exclusions: event.target.value,
-                    }))
-                  }
-                  placeholder="List work not included in this quote."
-                />
-              </label>
-              <div className={styles.pilotThreeColumn}>
-                <label className={styles.field}>
-                  <span>Quote reference</span>
-                  <input
-                    value={quoteDraft.reference}
-                    onChange={(event) =>
-                      setQuoteDraft((current) => ({
-                        ...current,
-                        reference: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span>Valid until</span>
-                  <input
-                    type="date"
-                    value={quoteDraft.validUntil}
-                    onChange={(event) =>
-                      setQuoteDraft((current) => ({
-                        ...current,
-                        validUntil: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label className={styles.field}>
-                  <span>Main difference reason</span>
-                  <select
-                    value={quoteDraft.reasonCode}
-                    onChange={(event) =>
-                      setQuoteDraft((current) => ({
-                        ...current,
-                        reasonCode: event.target
-                          .value as QuoteDifferenceReason["reason_code"],
-                      }))
+
+              <div className={styles.quoteStepBar} aria-label="Quote builder steps">
+                <span><b>1</b> Site measurements</span>
+                <span><b>2</b> Cost build-up</span>
+                <span><b>3</b> Scope and finish</span>
+              </div>
+
+              <div className={styles.quoteBuilderLayout}>
+                <div className={styles.quoteEditor}>
+                  <QuoteSection
+                    number="01"
+                    title="On-site measurements"
+                    copy="Start with what you can verify at the property. HUM already brought over the homeowner facts; replace them with your measurements."
+                    action={
+                      <button
+                        className={styles.textButton}
+                        type="button"
+                        onClick={() => {
+                          const roofArea =
+                            selectedEstimate.calculation_result.scenarios
+                              .expected.roofAreaSqft ??
+                            selectedProject.footprint_sqft ??
+                            "";
+                          setQuoteDraft((current) => ({
+                            ...current,
+                            roofAreaSqft: String(roofArea),
+                            existingLayers: String(
+                              selectedProject.existing_layers || 1,
+                            ),
+                            pitch: selectedProject.roof_pitch,
+                            access: selectedProject.access_level,
+                            deckingSheets: String(
+                              selectedProject.decking_allowance_sheets ?? 0,
+                            ),
+                            chimneyCount: String(
+                              selectedProject.chimney_count ?? 0,
+                            ),
+                            skylightCount: String(
+                              selectedProject.skylight_count ?? 0,
+                            ),
+                          }));
+                        }}
+                      >
+                        Restore HUM facts
+                      </button>
                     }
                   >
-                    {[
-                      "material_price",
-                      "labor_rate",
-                      "scope_added",
-                      "scope_removed",
-                      "measurement",
-                      "access",
-                      "permit",
-                      "disposal",
-                      "warranty",
-                      "market_conditions",
-                      "allowance",
-                      "other",
-                    ].map((code) => (
-                      <option key={code} value={code}>
-                        {code.replaceAll("_", " ")}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className={styles.pilotThreeColumn}>
-                <label className={styles.field}>
-                  <span>Direction</span>
-                  <select
-                    value={quoteDraft.reasonDirection}
-                    onChange={(event) =>
-                      setQuoteDraft((current) => ({
-                        ...current,
-                        reasonDirection: event.target
-                          .value as QuoteDifferenceReason["direction"],
-                      }))
-                    }
+                    <div className={styles.quoteFieldGrid}>
+                      <NumberField
+                        label="Measured roof area"
+                        suffix="sq ft"
+                        help="Use your aerial report or field measurement. Enter roof surface area, not the home’s floor area."
+                        value={quoteDraft.roofAreaSqft}
+                        onChange={(value) => updateQuote("roofAreaSqft", value)}
+                      />
+                      <NumberField
+                        label="Waste factor"
+                        suffix="%"
+                        help="Common planning range is 8–15%. Use more for cut-up roofs, valleys, and complex geometry."
+                        value={quoteDraft.wastePercent}
+                        onChange={(value) => updateQuote("wastePercent", value)}
+                      />
+                      <OutputField
+                        label="Order quantity"
+                        value={`${quoteCalculation.roofingSquares.toFixed(1)} squares`}
+                        help="Automatically calculated from measured area plus waste. One roofing square equals 100 sq ft."
+                      />
+                      <NumberField
+                        label="Existing roof layers"
+                        suffix="layers"
+                        help="Count the roof layers that must be removed."
+                        value={quoteDraft.existingLayers}
+                        onChange={(value) => updateQuote("existingLayers", value)}
+                      />
+                      <SelectField
+                        label="Verified pitch"
+                        value={quoteDraft.pitch}
+                        onChange={(value) => updateQuote("pitch", value)}
+                        options={[
+                          ["low", "Low slope"],
+                          ["moderate", "Moderate / walkable"],
+                          ["steep", "Steep / special setup"],
+                        ]}
+                      />
+                      <SelectField
+                        label="Jobsite access"
+                        value={quoteDraft.access}
+                        onChange={(value) => updateQuote("access", value)}
+                        options={[
+                          ["easy", "Easy truck and dumpster access"],
+                          ["standard", "Normal residential access"],
+                          ["difficult", "Limited or difficult access"],
+                        ]}
+                      />
+                      <NumberField
+                        label="Decking allowance"
+                        suffix="sheets"
+                        help="Enter only sheets you are including. Hidden damage beyond this amount should be handled as a stated unit-price change."
+                        value={quoteDraft.deckingSheets}
+                        onChange={(value) => updateQuote("deckingSheets", value)}
+                      />
+                      <NumberField
+                        label="Ridge length"
+                        suffix="linear ft"
+                        help="Total ridge and hip length used for ridge cap planning."
+                        value={quoteDraft.ridgeFeet}
+                        onChange={(value) => updateQuote("ridgeFeet", value)}
+                      />
+                      <NumberField
+                        label="Valley length"
+                        suffix="linear ft"
+                        help="Total open or closed valley length."
+                        value={quoteDraft.valleyFeet}
+                        onChange={(value) => updateQuote("valleyFeet", value)}
+                      />
+                      <NumberField
+                        label="Chimneys"
+                        suffix="count"
+                        value={quoteDraft.chimneyCount}
+                        onChange={(value) => updateQuote("chimneyCount", value)}
+                      />
+                      <NumberField
+                        label="Skylights"
+                        suffix="count"
+                        value={quoteDraft.skylightCount}
+                        onChange={(value) => updateQuote("skylightCount", value)}
+                      />
+                    </div>
+                    <label className={styles.field}>
+                      <span>Site notes and concealed-condition warnings</span>
+                      <textarea
+                        rows={3}
+                        value={quoteDraft.siteNotes}
+                        onChange={(event) =>
+                          updateQuote("siteNotes", event.target.value)
+                        }
+                        placeholder="Example: Soft decking visible at north eave; final quantity requires tear-off."
+                      />
+                    </label>
+                  </QuoteSection>
+
+                  <QuoteSection
+                    number="02"
+                    title="Build the real cost"
+                    copy="Use your own supplier and labor numbers. Every field updates the quote preview on the right."
                   >
-                    <option value="higher">Higher than HUM</option>
-                    <option value="lower">Lower than HUM</option>
-                    <option value="neutral">Scope difference only</option>
-                  </select>
-                </label>
-                <MoneyField
-                  label="Approximate amount effect"
-                  value={quoteDraft.reasonAmount}
-                  onChange={(value) =>
-                    setQuoteDraft((current) => ({
-                      ...current,
-                      reasonAmount: value,
-                    }))
-                  }
-                />
-                <label className={styles.field}>
-                  <span>Why it differs</span>
-                  <input
-                    value={quoteDraft.reasonExplanation}
-                    onChange={(event) =>
-                      setQuoteDraft((current) => ({
-                        ...current,
-                        reasonExplanation: event.target.value,
-                      }))
-                    }
-                    placeholder="Site-specific explanation"
-                  />
-                </label>
+                    <div className={styles.quoteCostGroup}>
+                      <div>
+                        <strong>Roofing material</strong>
+                        <span>
+                          Order quantity × your installed material cost per square
+                        </span>
+                      </div>
+                      <div className={styles.quoteFieldGrid}>
+                        <SelectField
+                          label="Material system"
+                          value={quoteDraft.materialSystem}
+                          onChange={(value) =>
+                            updateQuote("materialSystem", value)
+                          }
+                          options={[
+                            ["architectural_shingles", "Architectural shingles"],
+                            ["three_tab_shingles", "Three-tab shingles"],
+                            ["standing_seam_metal", "Standing-seam metal"],
+                            ["exposed_fastener_metal", "Exposed-fastener metal"],
+                            ["tile", "Tile"],
+                            ["other", "Other system"],
+                          ]}
+                        />
+                        <MoneyField
+                          label="Material cost per square"
+                          help="Include the roofing system, underlayment, starter, ridge cap, fasteners, flashing, and normal accessories."
+                          value={quoteDraft.materialPerSquare}
+                          onChange={(value) =>
+                            updateQuote("materialPerSquare", value)
+                          }
+                        />
+                        <OutputField
+                          label="Calculated materials"
+                          value={money(quoteCalculation.materialAmount)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className={styles.quoteCostGroup}>
+                      <div>
+                        <strong>Labor plan</strong>
+                        <span>
+                          Crew size × days × hours per day × loaded hourly cost
+                        </span>
+                      </div>
+                      <div className={styles.quoteFieldGrid}>
+                        <NumberField
+                          label="Crew size"
+                          suffix="people"
+                          value={quoteDraft.crewSize}
+                          onChange={(value) => updateQuote("crewSize", value)}
+                        />
+                        <NumberField
+                          label="Expected duration"
+                          suffix="days"
+                          value={quoteDraft.laborDays}
+                          onChange={(value) => updateQuote("laborDays", value)}
+                        />
+                        <NumberField
+                          label="Hours per day"
+                          suffix="hours"
+                          value={quoteDraft.hoursPerDay}
+                          onChange={(value) => updateQuote("hoursPerDay", value)}
+                        />
+                        <MoneyField
+                          label="Loaded cost per worker hour"
+                          help="Use wage plus payroll burden, workers’ comp, and other direct labor burden."
+                          value={quoteDraft.hourlyRate}
+                          onChange={(value) => updateQuote("hourlyRate", value)}
+                        />
+                        <OutputField
+                          label="Calculated labor"
+                          value={money(quoteCalculation.laborAmount)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className={styles.quoteCostGroup}>
+                      <div>
+                        <strong>Job-specific costs</strong>
+                        <span>
+                          Add actual costs and allowances that apply to this property
+                        </span>
+                      </div>
+                      <div className={styles.quoteFieldGrid}>
+                        <MoneyField
+                          label="Tear-off per square, per layer"
+                          value={quoteDraft.tearoffPerSquare}
+                          onChange={(value) =>
+                            updateQuote("tearoffPerSquare", value)
+                          }
+                        />
+                        <MoneyField
+                          label="Dumpster / disposal"
+                          value={quoteDraft.disposalFee}
+                          onChange={(value) =>
+                            updateQuote("disposalFee", value)
+                          }
+                        />
+                        <MoneyField
+                          label="Permit"
+                          value={quoteDraft.permitFee}
+                          onChange={(value) => updateQuote("permitFee", value)}
+                        />
+                        <MoneyField
+                          label="Delivery / equipment"
+                          value={quoteDraft.deliveryFee}
+                          onChange={(value) => updateQuote("deliveryFee", value)}
+                        />
+                        <MoneyField
+                          label="Decking cost per sheet"
+                          value={quoteDraft.deckingSheetCost}
+                          onChange={(value) =>
+                            updateQuote("deckingSheetCost", value)
+                          }
+                        />
+                        <MoneyField
+                          label="Other allowance"
+                          help="Use for uncertain but included work. Explain it in the scope."
+                          value={quoteDraft.allowance}
+                          onChange={(value) => updateQuote("allowance", value)}
+                        />
+                        <MoneyField
+                          label="Other direct cost"
+                          value={quoteDraft.other}
+                          onChange={(value) => updateQuote("other", value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className={styles.businessPricing}>
+                      <div>
+                        <strong>Business pricing</strong>
+                        <span>
+                          HUM keeps cost, overhead, and profit visible to you—not
+                          the homeowner.
+                        </span>
+                      </div>
+                      <NumberField
+                        label="Overhead"
+                        suffix="% of direct cost"
+                        help="Office, vehicles, insurance, sales, software, and general operating expense."
+                        value={quoteDraft.overheadPercent}
+                        onChange={(value) =>
+                          updateQuote("overheadPercent", value)
+                        }
+                      />
+                      <NumberField
+                        label="Target profit margin"
+                        suffix="% of selling price"
+                        help="This is margin, not markup. HUM calculates the correct selling price."
+                        value={quoteDraft.profitMarginPercent}
+                        onChange={(value) =>
+                          updateQuote("profitMarginPercent", value)
+                        }
+                      />
+                    </div>
+                  </QuoteSection>
+
+                  <QuoteSection
+                    number="03"
+                    title="Confirm scope and terms"
+                    copy="Choose included work first. HUM turns those selections into an editable quote scope."
+                  >
+                    <div className={styles.scopeChecklist}>
+                      {scopeOptions.map(([value, label, help]) => (
+                        <label key={value}>
+                          <input
+                            type="checkbox"
+                            checked={quoteDraft.scopeSelections.includes(value)}
+                            onChange={() => toggleScopeItem(value)}
+                          />
+                          <span>
+                            <strong>{label}</strong>
+                            <small>{help}</small>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <label className={styles.field}>
+                      <span>Customer-facing scope</span>
+                      <textarea
+                        rows={9}
+                        value={quoteDraft.scope || generatedScope}
+                        onChange={(event) =>
+                          updateQuote("scope", event.target.value)
+                        }
+                      />
+                      <small>
+                        Edit this freely. Clear it to rebuild from the checked
+                        items.
+                      </small>
+                    </label>
+                    <label className={styles.field}>
+                      <span>Exclusions and change-order terms</span>
+                      <textarea
+                        rows={4}
+                        value={quoteDraft.exclusions}
+                        onChange={(event) =>
+                          updateQuote("exclusions", event.target.value)
+                        }
+                        placeholder="Example: Concealed decking beyond 8 sheets is excluded and billed at the stated per-sheet price with homeowner approval."
+                      />
+                    </label>
+                    <div className={styles.pilotThreeColumn}>
+                      <label className={styles.field}>
+                        <span>Quote number / reference</span>
+                        <input
+                          value={quoteDraft.reference}
+                          onChange={(event) =>
+                            updateQuote("reference", event.target.value)
+                          }
+                          placeholder="HUM-2026-001"
+                        />
+                      </label>
+                      <label className={styles.field}>
+                        <span>Valid until</span>
+                        <input
+                          type="date"
+                          value={quoteDraft.validUntil}
+                          onChange={(event) =>
+                            updateQuote("validUntil", event.target.value)
+                          }
+                        />
+                      </label>
+                    </div>
+
+                    <details className={styles.quoteDifference}>
+                      <summary>Explain why this differs from HUM’s estimate</summary>
+                      <p>
+                        This does not change your price. It creates evidence HUM
+                        can use to improve future planning estimates.
+                      </p>
+                      <div className={styles.pilotThreeColumn}>
+                        <SelectField
+                          label="Main reason"
+                          value={quoteDraft.reasonCode}
+                          onChange={(value) =>
+                            updateQuote(
+                              "reasonCode",
+                              value as QuoteDifferenceReason["reason_code"],
+                            )
+                          }
+                          options={[
+                            ["material_price", "Material price"],
+                            ["labor_rate", "Labor rate"],
+                            ["scope_added", "Additional scope"],
+                            ["scope_removed", "Reduced scope"],
+                            ["measurement", "Field measurement"],
+                            ["access", "Jobsite access"],
+                            ["permit", "Permit requirement"],
+                            ["disposal", "Disposal cost"],
+                            ["warranty", "Warranty level"],
+                            ["market_conditions", "Market conditions"],
+                            ["allowance", "Allowance"],
+                            ["other", "Other"],
+                          ]}
+                        />
+                        <SelectField
+                          label="Direction"
+                          value={quoteDraft.reasonDirection}
+                          onChange={(value) =>
+                            updateQuote(
+                              "reasonDirection",
+                              value as QuoteDifferenceReason["direction"],
+                            )
+                          }
+                          options={[
+                            ["higher", "Higher than HUM"],
+                            ["lower", "Lower than HUM"],
+                            ["neutral", "Scope difference only"],
+                          ]}
+                        />
+                        <MoneyField
+                          label="Approximate amount effect"
+                          value={quoteDraft.reasonAmount}
+                          onChange={(value) =>
+                            updateQuote("reasonAmount", value)
+                          }
+                        />
+                      </div>
+                      <label className={styles.field}>
+                        <span>Site-specific explanation</span>
+                        <textarea
+                          rows={3}
+                          value={quoteDraft.reasonExplanation}
+                          onChange={(event) =>
+                            updateQuote(
+                              "reasonExplanation",
+                              event.target.value,
+                            )
+                          }
+                          placeholder="Example: Aerial measurement was 4.2 squares low and the rear roof requires hand-carry access."
+                        />
+                      </label>
+                    </details>
+                  </QuoteSection>
+                </div>
+
+                <aside className={styles.liveQuotePreview}>
+                  <p className={styles.kicker}>Live quote</p>
+                  <span className={styles.liveLabel}>Customer price</span>
+                  <strong className={styles.liveTotal}>
+                    {money(quoteCalculation.totalAmount)}
+                  </strong>
+                  <small>
+                    {quoteCalculation.roofingSquares.toFixed(1)} roofing squares ·{" "}
+                    {quoteDraft.materialSystem.replaceAll("_", " ")}
+                  </small>
+                  <div className={styles.liveBreakdown}>
+                    <QuotePreviewRow
+                      label="Materials"
+                      value={quoteCalculation.materialAmount}
+                    />
+                    <QuotePreviewRow
+                      label="Labor"
+                      value={quoteCalculation.laborAmount}
+                    />
+                    <QuotePreviewRow
+                      label="Tear-off + disposal"
+                      value={quoteCalculation.tearoffDisposalAmount}
+                    />
+                    <QuotePreviewRow
+                      label="Permit + delivery"
+                      value={quoteCalculation.permitDeliveryAmount}
+                    />
+                    <QuotePreviewRow
+                      label="Allowances"
+                      value={quoteCalculation.allowanceAmount}
+                    />
+                    <QuotePreviewRow
+                      label="Other direct cost"
+                      value={quoteCalculation.baseOtherAmount}
+                    />
+                  </div>
+                  <div className={styles.privatePricing}>
+                    <span>
+                      <small>Direct job cost</small>
+                      <strong>{money(quoteCalculation.directCost)}</strong>
+                    </span>
+                    <span>
+                      <small>Overhead</small>
+                      <strong>{money(quoteCalculation.overheadAmount)}</strong>
+                    </span>
+                    <span>
+                      <small>Target profit</small>
+                      <strong>{money(quoteCalculation.profitAmount)}</strong>
+                    </span>
+                  </div>
+                  <div className={styles.quotePreviewActions}>
+                    <button
+                      className={styles.secondaryButton}
+                      type="button"
+                      disabled={busy.startsWith("quote-")}
+                      onClick={() => saveQuote("draft")}
+                    >
+                      {busy === "quote-draft" ? "Saving…" : "Save draft"}
+                    </button>
+                    <button
+                      className={styles.primaryButton}
+                      type="button"
+                      disabled={
+                        busy.startsWith("quote-") ||
+                        contractorProfile?.status !== "approved"
+                      }
+                      onClick={() => saveQuote("submitted")}
+                    >
+                      {busy === "quote-submitted"
+                        ? "Submitting…"
+                        : existingQuote?.status === "submitted"
+                          ? "Update submitted quote"
+                          : "Submit actual quote"}
+                    </button>
+                  </div>
+                  <p className={styles.pilotFootnote}>
+                    Drafts reopen with every field intact. Submission records
+                    evidence only; HUM does not award the job or process money.
+                  </p>
+                </aside>
               </div>
-              <div className={styles.pilotRowActions}>
-                <button
-                  className={styles.secondaryButton}
-                  type="button"
-                  disabled={busy.startsWith("quote-")}
-                  onClick={() => saveQuote("draft")}
-                >
-                  Save draft
-                </button>
-                <button
-                  className={styles.primaryButton}
-                  type="button"
-                  disabled={
-                    busy.startsWith("quote-") ||
-                    contractorProfile?.status !== "approved"
-                  }
-                  onClick={() => saveQuote("submitted")}
-                >
-                  Submit actual quote
-                </button>
-              </div>
-              <p className={styles.pilotFootnote}>
-                Submission records real-world evidence only. HUM does not award the
-                job, bind either party, or process money in Round 4.
-              </p>
             </section>
 
             <FeedbackForm
@@ -1840,10 +2381,12 @@ function IssueForm({
 
 function MoneyField({
   label,
+  help,
   value,
   onChange,
 }: {
   label: string;
+  help?: string;
   value: string;
   onChange: (value: string) => void;
 }) {
@@ -1859,7 +2402,127 @@ function MoneyField({
         onChange={(event) => onChange(event.target.value)}
         placeholder="$0"
       />
+      {help && <small>{help}</small>}
     </label>
+  );
+}
+
+function NumberField({
+  label,
+  suffix,
+  help,
+  value,
+  onChange,
+}: {
+  label: string;
+  suffix?: string;
+  help?: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className={styles.field}>
+      <span>{label}</span>
+      <span className={styles.inputWithSuffix}>
+        <input
+          inputMode="decimal"
+          type="number"
+          min="0"
+          step="0.1"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="0"
+        />
+        {suffix && <b>{suffix}</b>}
+      </span>
+      {help && <small>{help}</small>}
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: ReadonlyArray<readonly [string, string]>;
+}) {
+  return (
+    <label className={styles.field}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map(([optionValue, optionLabel]) => (
+          <option key={optionValue} value={optionValue}>
+            {optionLabel}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function OutputField({
+  label,
+  value,
+  help,
+}: {
+  label: string;
+  value: string;
+  help?: string;
+}) {
+  return (
+    <div className={styles.outputField}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {help && <small>{help}</small>}
+    </div>
+  );
+}
+
+function QuoteSection({
+  number,
+  title,
+  copy,
+  action,
+  children,
+}: {
+  number: string;
+  title: string;
+  copy: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={styles.quoteSection}>
+      <header>
+        <span>{number}</span>
+        <div>
+          <h3>{title}</h3>
+          <p>{copy}</p>
+        </div>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function QuotePreviewRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <span>
+      <small>{label}</small>
+      <strong>{money(value)}</strong>
+    </span>
   );
 }
 
