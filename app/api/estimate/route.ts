@@ -147,6 +147,10 @@ export async function POST(request: Request) {
       low: Number(item.low_value),
       expected: Number(item.expected_value),
       high: Number(item.high_value),
+      sourceName: item.source_name,
+      sourceUrl: item.source_url,
+      verifiedAt: item.verified_at,
+      confidence: item.confidence,
     })),
     rule: "AI interpretations excluded from all monetary calculations.",
   };

@@ -9,7 +9,7 @@ import {
   SUPABASE_PUBLISHABLE_KEY,
   SUPABASE_URL,
 } from "./config";
-import { getSupabaseBrowserClient } from "./supabase";
+import { browserRandomId, getSupabaseBrowserClient } from "./supabase";
 import type {
   EstimateRecord,
   HomeownerIntakeState,
@@ -567,7 +567,7 @@ export default function HomeownerWorkspace({
 
     setUploadProgress(0);
     const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100);
-    const path = `${profile.id}/${selectedProject.id}/${crypto.randomUUID()}-${cleanName}`;
+    const path = `${profile.id}/${selectedProject.id}/${browserRandomId()}-${cleanName}`;
     try {
       await uploadObject(file, path, setUploadProgress);
       const { error: metadataError } = await supabase
@@ -1483,8 +1483,8 @@ export default function HomeownerWorkspace({
                         : "Confirm the project type and home footprint first"}
                     </strong>
                     <span>
-                      Uncertain items stay visible as assumptions and reduce
-                      confidence.
+                      No contractor quote or contractor pricing is required.
+                      Uncertain items widen the range and stay visible.
                     </span>
                   </div>
                   <button
@@ -1662,6 +1662,61 @@ export default function HomeownerWorkspace({
                     </div>
                   </section>
 
+                  {latestEstimate.calculation_result.dataStrength && (
+                    <section className={styles.dataStrengthPanel}>
+                      <div>
+                        <p className={styles.kicker}>Local data strength</p>
+                        <h2>
+                          {latestEstimate.calculation_result.dataStrength.label}
+                        </h2>
+                        <p>
+                          {
+                            latestEstimate.calculation_result.dataStrength
+                              .limitation
+                          }
+                        </p>
+                      </div>
+                      <div className={styles.dataStrengthStats}>
+                        <span>
+                          <strong>
+                            {
+                              latestEstimate.calculation_result.dataStrength
+                                .sourcedInputs
+                            }
+                          </strong>
+                          sourced inputs
+                        </span>
+                        <span>
+                          <strong>
+                            {
+                              latestEstimate.calculation_result.dataStrength
+                                .mediumConfidenceInputs
+                            }
+                          </strong>
+                          medium confidence
+                        </span>
+                        <span>
+                          <strong>
+                            {
+                              latestEstimate.calculation_result.dataStrength
+                                .lowConfidenceInputs
+                            }
+                          </strong>
+                          pilot assumptions
+                        </span>
+                      </div>
+                      {!!latestEstimate.calculation_result.assumptions?.length && (
+                        <ul>
+                          {latestEstimate.calculation_result.assumptions.map(
+                            (assumption) => (
+                              <li key={assumption}>{assumption}</li>
+                            ),
+                          )}
+                        </ul>
+                      )}
+                    </section>
+                  )}
+
                   <div className={styles.estimateLayout}>
                     <section className={styles.panel}>
                       <div className={styles.sectionHeading}>
@@ -1761,10 +1816,13 @@ export default function HomeownerWorkspace({
                   </section>
 
                   <section className={styles.warningBanner}>
-                    <strong>Planning estimate—not a contractor quote.</strong>
+                    <strong>
+                      No quote required—but this is not a contractor quote.
+                    </strong>
+                    HUM uses source-backed public data and visible assumptions.
                     Field measurements, concealed conditions, material
                     selections, jurisdictional fees, contractor availability,
-                    and negotiated terms can change the final price.
+                    and negotiated terms can still change the final price.
                   </section>
 
                   <section className={styles.historyPanel}>

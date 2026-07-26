@@ -11,6 +11,22 @@ let browserClient: ReturnType<typeof createClient<Database>> | null = null;
 
 const TAB_ID_KEY = "hum-auth-tab-id";
 
+export function browserRandomId() {
+  const browserCrypto = globalThis.crypto;
+
+  if (typeof browserCrypto?.randomUUID === "function") {
+    return browserCrypto.randomUUID();
+  }
+
+  if (typeof browserCrypto?.getRandomValues === "function") {
+    const values = browserCrypto.getRandomValues(new Uint32Array(4));
+    return Array.from(values, (value) => value.toString(16).padStart(8, "0"))
+      .join("-");
+  }
+
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 function authSlot() {
   if (typeof window === "undefined") return "server";
   const requestedSlot = new URLSearchParams(window.location.search)
@@ -22,7 +38,7 @@ function authSlot() {
 
   let tabId = window.sessionStorage.getItem(TAB_ID_KEY);
   if (!tabId) {
-    tabId = window.crypto.randomUUID();
+    tabId = browserRandomId();
     window.sessionStorage.setItem(TAB_ID_KEY, tabId);
   }
   return tabId;

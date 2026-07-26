@@ -3007,6 +3007,239 @@
   font-size: 8px;
 }
 
+.sectionIntro {
+  color: #606b65;
+  font-size: 13px;
+  line-height: 1.65;
+  margin: -3px 0 20px;
+  max-width: 800px;
+}
+
+.sourceEvidenceGrid,
+.contractorMarketGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sourceEvidenceGrid article,
+.contractorMarketGrid article {
+  background: #f8f5ed;
+  border: 1px solid #d9d4c8;
+  border-radius: 16px;
+  display: grid;
+  gap: 11px;
+  min-width: 0;
+  padding: 17px;
+}
+
+.sourceEvidenceGrid header,
+.contractorMarketGrid article > div:first-child,
+.sourceEvidenceGrid footer,
+.contractorMarketGrid footer {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.sourceEvidenceGrid header > span:first-child,
+.contractorMarketGrid article > div:first-child > span:first-child {
+  color: #64716a;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sourceEvidenceGrid h3,
+.contractorMarketGrid h3 {
+  color: #192a24;
+  font: 400 21px/1.15 var(--font-serif), Georgia, serif;
+  margin: 0;
+}
+
+.sourceEvidenceGrid p,
+.contractorMarketGrid p {
+  color: #515e57;
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.sourceEvidenceGrid small,
+.contractorMarketGrid small {
+  color: #7b837e;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.sourceEvidenceGrid footer,
+.contractorMarketGrid footer {
+  border-top: 1px solid #ded8cc;
+  color: #707a74;
+  font-size: 9px;
+  margin-top: auto;
+  padding-top: 11px;
+}
+
+.sourceEvidenceGrid a,
+.contractorMarketGrid a,
+.publicEvidenceList a {
+  color: #1d5747;
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.marketBoundary {
+  align-items: start;
+  background: #192a24;
+  border-radius: 14px;
+  color: #c6d0cb;
+  display: grid;
+  gap: 9px;
+  grid-template-columns: minmax(180px, 0.35fr) 1fr;
+  margin-bottom: 17px;
+  padding: 15px 17px;
+}
+
+.marketBoundary strong {
+  color: #f3d783;
+  font-size: 12px;
+}
+
+.marketBoundary span {
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.marketSpecialties {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 6px !important;
+  justify-content: start !important;
+}
+
+.marketSpecialties span {
+  background: #e5ece5;
+  border: 1px solid #cbd8cc;
+  border-radius: 999px;
+  color: #345a45;
+  font-size: 8px;
+  font-weight: 700;
+  padding: 5px 7px;
+  text-transform: capitalize;
+}
+
+.publicEvidenceList {
+  display: grid;
+  gap: 10px;
+}
+
+.publicEvidenceList article {
+  align-items: center;
+  border-top: 1px solid #ded8cc;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 15px 0;
+}
+
+.publicEvidenceList article:first-child {
+  border-top: 0;
+}
+
+.publicEvidenceList article > div {
+  display: grid;
+  gap: 6px;
+}
+
+.publicEvidenceList span {
+  color: #7b6b36;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.publicEvidenceList strong {
+  color: #192a24;
+  font-size: 13px;
+}
+
+.publicEvidenceList p,
+.publicEvidenceList small {
+  color: #626d67;
+  font-size: 10px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.publicEvidenceList small {
+  color: #818883;
+  font-size: 9px;
+}
+
+.dataStrengthPanel {
+  align-items: start;
+  background: #192a24;
+  border: 1px solid #314c40;
+  border-radius: 20px;
+  color: #c6d0cb;
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.7fr);
+  margin-bottom: 22px;
+  padding: 23px;
+}
+
+.dataStrengthPanel h2 {
+  color: #f7f2e8;
+  margin: 4px 0 8px;
+}
+
+.dataStrengthPanel p {
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.dataStrengthPanel ul {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.dataStrengthPanel li {
+  font-size: 10px;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
+.dataStrengthStats {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dataStrengthStats span {
+  background: #233b31;
+  border: 1px solid #3c594c;
+  border-radius: 12px;
+  color: #b9c5bf;
+  display: grid;
+  font-size: 8px;
+  gap: 5px;
+  padding: 11px;
+}
+
+.dataStrengthStats strong {
+  color: #f3d783;
+  font: 400 23px/1 var(--font-serif), Georgia, serif;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -3043,6 +3276,15 @@
 
   .trustGrid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .sourceEvidenceGrid,
+  .contractorMarketGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dataStrengthPanel {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -3145,6 +3387,10 @@
 
   .historyRow {
     min-width: 650px;
+  }
+
+  .marketBoundary {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -3266,5 +3512,16 @@
   .accountTable > div,
   .observationRow {
     min-width: 580px;
+  }
+
+  .dataStrengthStats,
+  .sourceEvidenceGrid,
+  .contractorMarketGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .publicEvidenceList article {
+    align-items: start;
+    grid-template-columns: 1fr;
   }
 }

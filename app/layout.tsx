@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "HUM | Roofing Intelligence",
-  description: "Understand your roofing project, costs, and contractor options before you hire.",
+  title: "HUM | Home Project Planner",
+  description:
+    "Get a clear home-project planning range from photos or a guided self-inspection before you call contractors.",
   other: {
     "codex-preview": "development",
   },

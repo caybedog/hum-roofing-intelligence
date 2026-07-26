@@ -252,7 +252,8 @@ export default function AuthPanel() {
         </form>
         <p className={styles.authBoundary}>
           Planning estimates only. HUM does not provide a binding contractor
-          quote, inspection, engineering opinion, or legal advice.
+          quote, inspection, engineering opinion, or legal advice. Ten real
+          projects are still required before Round 5.
         </p>
       </section>
     </main>

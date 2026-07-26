@@ -15,7 +15,7 @@ export const ALLOWED_PHOTO_TYPES = [
 ] as const;
 
 export const OPENAI_MODEL =
-  process.env.OPENAI_MODEL ?? "gpt-5.6-luna";
+  process.env.OPENAI_MODEL ?? "gpt-5.6";
 
 export function assertServerConfiguration() {
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {

@@ -107,6 +107,82 @@ export type PricingItem = {
   change_note: string;
 };
 
+export type PricingSource = {
+  id: string;
+  source_key: string;
+  name: string;
+  publisher: string;
+  source_type:
+    | "government"
+    | "manufacturer"
+    | "retailer"
+    | "public_bid"
+    | "labor_statistics"
+    | "market_directory"
+    | "industry_assumption";
+  geography: string;
+  source_url: string | null;
+  published_at: string | null;
+  verified_at: string;
+  fresh_until: string | null;
+  confidence: "low" | "medium" | "high";
+  status: "active" | "stale" | "retired";
+  evidence_summary: string;
+  limitation_note: string;
+  created_at: string;
+};
+
+export type ContractorMarketRecord = {
+  id: string;
+  company_name: string;
+  city: string;
+  service_area: string;
+  public_website: string | null;
+  public_phone: string | null;
+  license_number: string | null;
+  classification_claim: string | null;
+  license_evidence_status:
+    | "directory_listed"
+    | "business_claim"
+    | "cslb_verified";
+  specialties: string[];
+  source_url: string;
+  last_verified_at: string;
+  recruitment_status:
+    | "research"
+    | "candidate"
+    | "contacted"
+    | "declined"
+    | "pilot_partner";
+  pricing_use_prohibited: boolean;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PublicProjectEvidence = {
+  id: string;
+  title: string;
+  evidence_type:
+    | "residential_scope"
+    | "public_works_scope"
+    | "permit_rule";
+  project_type: string;
+  geography: string;
+  source_url: string;
+  published_at: string | null;
+  verified_at: string;
+  pricing_usability:
+    | "scope_only"
+    | "residential_calibration"
+    | "public_works_separate";
+  total_price: number | null;
+  evidence_summary: string;
+  limitation_note: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type EstimateScenario = {
   scenario: "low" | "expected" | "high";
   roofAreaSqft: number;
@@ -126,6 +202,13 @@ export type EstimateScenario = {
   costBasis: number;
   targetMargin: number;
   planningPrice: number;
+  assumptions: {
+    roofPitch: "low" | "moderate" | "steep";
+    existingLayers: number;
+    accessLevel: "easy" | "standard" | "difficult";
+    complexity: "simple" | "standard" | "complex";
+    deckingSheets: number;
+  };
 };
 
 export type EstimateResult = {
@@ -133,6 +216,17 @@ export type EstimateResult = {
   pricingVersionCode: string;
   pricingEffectiveDate: string;
   confidenceScore: number;
+  dataStrength?: {
+    label: string;
+    totalInputs: number;
+    sourcedInputs: number;
+    highConfidenceInputs: number;
+    mediumConfidenceInputs: number;
+    lowConfidenceInputs: number;
+    newestVerificationDate: string;
+    limitation: string;
+  };
+  assumptions?: string[];
   missingInformation: string[];
   majorCostDrivers: string[];
   questionsForContractor: string[];

@@ -40,6 +40,21 @@ const pricingItems = Object.entries(values).map(([code, row]) => ({
   low_value: row[0],
   expected_value: row[1],
   high_value: row[2],
+  source_url:
+    code === "shingle_material" ||
+    code === "underlayment" ||
+    code === "disposal_per_layer" ||
+    code === "permit_allowance"
+      ? `https://example.test/${code}`
+      : null,
+  verified_at: "2026-07-26",
+  confidence:
+    code === "shingle_material" ||
+    code === "underlayment" ||
+    code === "disposal_per_layer" ||
+    code === "permit_allowance"
+      ? "medium"
+      : "low",
 }));
 
 const project = {
@@ -89,6 +104,9 @@ test("calculates ordered scenarios and a traceable planning range", () => {
     result.audit.find((item) => item.label === "Calculation rule").value,
     /AI interpretations are excluded/,
   );
+  assert.equal(result.dataStrength.sourcedInputs, 4);
+  assert.equal(result.dataStrength.lowConfidenceInputs, 17);
+  assert.match(result.dataStrength.limitation, /Humboldt contractor/);
 });
 
 test("AI prose cannot alter any monetary result", () => {
@@ -128,5 +146,63 @@ test("missing facts reduce confidence without inventing them", () => {
     result.missingInformation.includes(
       "Existing and preferred roof material",
     ),
+  );
+});
+
+test("unknown homeowner conditions widen the range without requiring a quote", () => {
+  const result = calculateEstimate(
+    {
+      ...project,
+      homeowner_facts: {
+        confirmed_fields: {
+          footprint_sqft: {
+            source: "homeowner_chat",
+            source_text: "The house is about 1,600 square feet.",
+            confirmed_at: "2026-07-26T00:00:00.000Z",
+          },
+          project_type: {
+            source: "homeowner_chat",
+            source_text: "I need the roof replaced.",
+            confirmed_at: "2026-07-26T00:00:00.000Z",
+          },
+        },
+        deferred_fields: [
+          "roof_pitch",
+          "existing_layers",
+          "access_level",
+          "complexity",
+        ],
+        decking_allowance_method: "hum_default",
+      },
+    },
+    pricingVersion,
+    pricingItems,
+  );
+
+  assert.equal(result.scenarios.low.assumptions.roofPitch, "low");
+  assert.equal(result.scenarios.expected.assumptions.roofPitch, "moderate");
+  assert.equal(result.scenarios.high.assumptions.roofPitch, "steep");
+  assert.equal(result.scenarios.low.assumptions.deckingSheets, 0);
+  assert.equal(result.scenarios.expected.assumptions.deckingSheets, 4);
+  assert.ok(result.scenarios.high.assumptions.deckingSheets >= 8);
+  assert.ok(
+    result.audit.some(
+      (item) =>
+        item.label === "Quote requirement" &&
+        item.value.includes("No contractor quote"),
+    ),
+  );
+  assert.ok(result.assumptions.length >= 5);
+});
+
+test("does not disguise metal or tile pricing as an asphalt estimate", () => {
+  assert.throws(
+    () =>
+      calculateEstimate(
+        { ...project, roof_material: "metal" },
+        pricingVersion,
+        pricingItems,
+      ),
+    /supports asphalt roofing/,
   );
 });

@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "./supabase";
 import type {
+  ContractorMarketRecord,
   HumRole,
   PricingItem,
+  PricingSource,
   PricingVersion,
   Profile,
+  PublicProjectEvidence,
   Project,
 } from "./types";
 import type { WorkspaceView } from "./shell";
@@ -56,6 +59,13 @@ export default function AdminWorkspace({
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [versions, setVersions] = useState<PricingVersion[]>([]);
   const [items, setItems] = useState<PricingItem[]>([]);
+  const [pricingSources, setPricingSources] = useState<PricingSource[]>([]);
+  const [contractorMarket, setContractorMarket] = useState<
+    ContractorMarketRecord[]
+  >([]);
+  const [publicEvidence, setPublicEvidence] = useState<
+    PublicProjectEvidence[]
+  >([]);
   const [observations, setObservations] = useState<PricingObservation[]>([]);
   const [aiRequests, setAiRequests] = useState<AiRequest[]>([]);
   const [audits, setAudits] = useState<AuditEvent[]>([]);
@@ -80,6 +90,9 @@ export default function AdminWorkspace({
       observationResult,
       aiResult,
       auditResult,
+      sourceResult,
+      marketResult,
+      publicEvidenceResult,
     ] = await Promise.all([
       supabase
         .from("projects")
@@ -104,6 +117,19 @@ export default function AdminWorkspace({
         .select("*")
         .order("created_at", { ascending: false })
         .limit(100),
+      supabase
+        .from("pricing_sources")
+        .select("*")
+        .order("verified_at", { ascending: false }),
+      supabase
+        .from("contractor_market_records")
+        .select("*")
+        .order("city")
+        .order("company_name"),
+      supabase
+        .from("public_project_evidence")
+        .select("*")
+        .order("verified_at", { ascending: false }),
     ]);
 
     const firstError = [
@@ -113,6 +139,9 @@ export default function AdminWorkspace({
       observationResult.error,
       aiResult.error,
       auditResult.error,
+      sourceResult.error,
+      marketResult.error,
+      publicEvidenceResult.error,
     ].find(Boolean);
     if (firstError) setError(firstError.message);
 
@@ -125,6 +154,13 @@ export default function AdminWorkspace({
     );
     setAiRequests((aiResult.data ?? []) as AiRequest[]);
     setAudits((auditResult.data ?? []) as AuditEvent[]);
+    setPricingSources((sourceResult.data ?? []) as PricingSource[]);
+    setContractorMarket(
+      (marketResult.data ?? []) as ContractorMarketRecord[],
+    );
+    setPublicEvidence(
+      (publicEvidenceResult.data ?? []) as PublicProjectEvidence[],
+    );
     setSelectedVersionId((current) =>
       current && versionRows.some((version) => version.id === current)
         ? current
@@ -363,6 +399,26 @@ export default function AdminWorkspace({
     setBusy("");
   }
 
+  async function updateRecruitmentStatus(
+    contractor: ContractorMarketRecord,
+    status: ContractorMarketRecord["recruitment_status"],
+  ) {
+    setBusy(`market-${contractor.id}`);
+    setError("");
+    const { error: marketError } = await supabase
+      .from("contractor_market_records")
+      .update({ recruitment_status: status })
+      .eq("id", contractor.id);
+    if (marketError) setError(marketError.message);
+    else {
+      setNotice(
+        `${contractor.company_name} moved to ${status.replaceAll("_", " ")}. This changes recruitment tracking only—not pricing.`,
+      );
+      await loadAll();
+    }
+    setBusy("");
+  }
+
   const selectedVersion = versions.find(
     (version) => version.id === selectedVersionId,
   );
@@ -475,9 +531,43 @@ export default function AdminWorkspace({
           <div className={styles.warningBanner}>
             <strong>Roadmap gate</strong>
             <span>
-              Contractor observations enter a queue. They cannot change a
-              homeowner estimate or approved regional price automatically.
+              Homeowners do not need a contractor quote. Public evidence and
+              contractor observations enter a review boundary and cannot
+              change an approved regional price automatically.
             </span>
+          </div>
+          <div className={styles.trustGrid}>
+            <StatCard
+              label="Evidence snapshots"
+              value={pricingSources.length}
+            />
+            <StatCard
+              label="Official sources"
+              value={
+                pricingSources.filter(
+                  (source) => source.source_type === "government",
+                ).length
+              }
+            />
+            <StatCard
+              label="Low-confidence inputs"
+              value={
+                items.filter((item) => item.confidence === "low").length
+              }
+            />
+            <StatCard
+              label="Contractor candidates"
+              value={
+                contractorMarket.filter(
+                  (contractor) =>
+                    contractor.recruitment_status === "candidate",
+                ).length
+              }
+            />
+            <StatCard
+              label="Public scopes"
+              value={publicEvidence.length}
+            />
           </div>
           <div className={styles.intakeLayout}>
             <section className={styles.panel}>
@@ -648,6 +738,161 @@ export default function AdminWorkspace({
                 </button>
               </div>
             )}
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.sectionHeading}>
+              <div>
+                <p className={styles.kicker}>Evidence register</p>
+                <h2>What HUM knows—and where it came from</h2>
+              </div>
+              <span className={styles.sourceTag}>Immutable snapshots</span>
+            </div>
+            <p className={styles.sectionIntro}>
+              Retail prices, public fees, permit rules, and market assumptions
+              stay visibly separate. A new verification creates a new snapshot
+              instead of silently rewriting an earlier estimate.
+            </p>
+            <div className={styles.sourceEvidenceGrid}>
+              {pricingSources.map((source) => (
+                <article key={source.id}>
+                  <header>
+                    <span>{source.source_type.replaceAll("_", " ")}</span>
+                    <span className={styles.statusPill}>
+                      {source.confidence}
+                    </span>
+                  </header>
+                  <h3>{source.name}</h3>
+                  <p>{source.evidence_summary}</p>
+                  <small>{source.limitation_note}</small>
+                  <footer>
+                    <span>{source.geography}</span>
+                    <span>Checked {source.verified_at}</span>
+                    {source.source_url && (
+                      <a
+                        href={source.source_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open source
+                      </a>
+                    )}
+                  </footer>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.sectionHeading}>
+              <div>
+                <p className={styles.kicker}>Recruitment-only market map</p>
+                <h2>Humboldt roofing contractor candidates</h2>
+              </div>
+              <span className={styles.sourceTag}>
+                Never used as price evidence
+              </span>
+            </div>
+            <div className={styles.marketBoundary}>
+              <strong>{contractorMarket.length} public business records</strong>
+              <span>
+                Every record is blocked from pricing use. “Business claim”
+                means the company or directory published the information; HUM
+                still requires a fresh CSLB check before pilot approval.
+              </span>
+            </div>
+            <div className={styles.contractorMarketGrid}>
+              {contractorMarket.map((contractor) => (
+                <article key={contractor.id}>
+                  <div>
+                    <span>{contractor.city}</span>
+                    <span className={styles.statusPill}>
+                      {contractor.license_evidence_status.replaceAll("_", " ")}
+                    </span>
+                  </div>
+                  <h3>{contractor.company_name}</h3>
+                  <p>{contractor.service_area}</p>
+                  <small>
+                    {contractor.license_number
+                      ? `Published license #${contractor.license_number}`
+                      : "License number not yet captured"}
+                  </small>
+                  <div className={styles.marketSpecialties}>
+                    {contractor.specialties.map((specialty) => (
+                      <span key={specialty}>
+                        {specialty.replaceAll("-", " ")}
+                      </span>
+                    ))}
+                  </div>
+                  <label className={styles.field}>
+                    <span>Recruitment status</span>
+                    <select
+                      value={contractor.recruitment_status}
+                      disabled={busy === `market-${contractor.id}`}
+                      onChange={(event) =>
+                        void updateRecruitmentStatus(
+                          contractor,
+                          event.target
+                            .value as ContractorMarketRecord["recruitment_status"],
+                        )
+                      }
+                    >
+                      <option value="research">Research</option>
+                      <option value="candidate">Candidate</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="declined">Declined</option>
+                      <option value="pilot_partner">Pilot partner</option>
+                    </select>
+                  </label>
+                  <footer>
+                    {contractor.public_website && (
+                      <a
+                        href={contractor.public_website}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Website
+                      </a>
+                    )}
+                    <a
+                      href={contractor.source_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Evidence
+                    </a>
+                  </footer>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className={styles.panel}>
+            <div className={styles.sectionHeading}>
+              <div>
+                <p className={styles.kicker}>Public project evidence</p>
+                <h2>Scope evidence stays separated by use</h2>
+              </div>
+            </div>
+            <div className={styles.publicEvidenceList}>
+              {publicEvidence.map((evidence) => (
+                <article key={evidence.id}>
+                  <div>
+                    <span>{evidence.pricing_usability.replaceAll("_", " ")}</span>
+                    <strong>{evidence.title}</strong>
+                    <p>{evidence.evidence_summary}</p>
+                    <small>{evidence.limitation_note}</small>
+                  </div>
+                  <a
+                    href={evidence.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open public record
+                  </a>
+                </article>
+              ))}
+            </div>
           </section>
 
           <section className={styles.panel}>

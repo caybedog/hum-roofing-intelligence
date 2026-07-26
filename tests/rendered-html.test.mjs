@@ -27,21 +27,20 @@ async function render(pathname = "/") {
   );
 }
 
-test("renders the secured Phase 4A pilot entry", async () => {
+test("renders the homeowner-only planning entry", async () => {
   const response = await render("/");
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
   assert.match(html, developmentPreviewMeta);
-  assert.match(html, /Secure roofing intelligence/i);
-  assert.match(html, /Controlled Humboldt pilot/i);
-  assert.match(html, /Phase 4A/i);
-  assert.match(html, /without counting test data as real evidence/i);
-  assert.match(html, /Private by default/i);
-  assert.match(html, /Money stays deterministic/i);
-  assert.match(html, /History stays reproducible/i);
-  assert.match(html, /Create account/i);
+  assert.match(html, /Home Project Planner/i);
+  assert.match(html, /Get a useful home-project price range/i);
+  assert.match(html, /Quick photo quote/i);
+  assert.match(html, /Guided self-inspection/i);
+  assert.match(html, /No account needed/i);
+  assert.match(html, /planning estimate, not a contractor bid/i);
+  assert.match(html, /AI never sets the price/i);
   assert.doesNotMatch(html, /OPENAI_API_KEY/i);
 });
 

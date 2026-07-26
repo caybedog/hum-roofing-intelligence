@@ -1,7 +1,7 @@
-import FoundationApp from "./foundation/foundation-app";
+import PlannerApp from "./planner/planner-app";
 
 export const dynamic = "force-dynamic";
 
 export default function Home() {
-  return <FoundationApp />;
+  return <PlannerApp />;
 }

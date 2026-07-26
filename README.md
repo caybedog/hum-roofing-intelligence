@@ -1,8 +1,50 @@
-# HUM Roofing Intelligence
+# HUM Home Project Planner
 
-HUM is a secure roofing-intelligence workspace for Humboldt County homeowners. The official product sequence is locked to the HUM roadmap. This repository contains the completed **Round 3 foundation**, the active **Round 4 controlled-pilot system**, and **Phase 4A administrator QA controls**; later marketplace, agreement, and construction screens are preserved at `/prototypes` but do not count as completed roadmap rounds.
+HUM is a homeowner-only planning tool for getting an explainable home-project
+price range before calling contractors. The active landing page offers a quick
+photo path and a guided self-inspection path across roofing, gutters, windows,
+doors, plumbing, painting, flooring, electrical, HVAC, siding, decks,
+bathrooms, kitchens, fencing, concrete, and landscaping.
 
-## What the secured foundation includes
+AI organizes homeowner language and visible photo facts. It never sets the
+price. A deterministic engine uses an immutable, versioned Humboldt County
+catalog, confirmed quantities, conditions, access, complexity, and explicit
+unknowns to calculate the range.
+
+No account is required to generate a planning range. A homeowner can optionally
+create an account to save the estimate privately and later upload a real quote
+or final invoice for consented, anonymous calibration.
+
+## Active homeowner MVP
+
+- two-to-four-minute photo-first quote path
+- five-to-eight-minute guided self-inspection
+- plain-language measurement help and safe-photo guidance
+- structured OpenAI image/text extraction with deterministic fallback
+- source-backed low, expected, and high planning scenarios
+- explicit confidence, assumptions, unknowns, and catalog version
+- printable estimate summary
+- private saved estimates and uploads
+- optional real-quote and final-invoice calibration consent
+- contractor identity excluded as a pricing feature
+
+The first catalog is strongest for asphalt roofing. Other categories are marked
+low confidence and intentionally use wider regional planning ranges until HUM
+has enough reviewed, consented local outcomes.
+
+## Preserved roofing pilot
+
+The former HUM Roofing Intelligence product is preserved in Git history and the
+public archive branch `archive/roofing-pilot-vercel-2026-07-26`. Its existing
+Supabase records, roles, contractor workflows, and evidence remain intact. The
+new planner uses only `planner_*` tables and the private `planner-uploads`
+bucket in that same Supabase project.
+
+The later roofing marketplace, agreement, and construction screens remain at
+`/prototypes` for reference; they are not part of the active homeowner product
+and do not represent completed roadmap rounds.
+
+## What the preserved roofing foundation includes
 
 - Email registration, sign-in, sign-out, and password recovery
 - Separate homeowner, contractor, and administrator roles
@@ -138,7 +180,10 @@ The migration is repeatable through a clean reset and creates:
 - a private `project-photos` bucket and storage policies
 - the first approved Humboldt County roofing pricing version
 
-The hosted HUM project is isolated from every other business or Supabase project.
+The homeowner planner and preserved roofing pilot share the hosted HUM Supabase
+project but use separately named tables, storage paths, and row-level-security
+policies. No existing roofing records are migrated, deleted, or counted as
+planner calibration data.
 
 ## Pricing and estimate reproducibility
 
@@ -198,7 +243,7 @@ Both production environments must define:
 
 ```text
 OPENAI_API_KEY       secret
-OPENAI_MODEL         gpt-5.6-luna
+OPENAI_MODEL         gpt-5.6
 ```
 
 The Supabase URL and publishable key may use the defaults in `app/foundation/config.ts` or matching environment values. The Supabase Auth production redirect allowlist must include:
@@ -208,4 +253,6 @@ https://hum-roofing-intelligence.caybedog707.chatgpt.site/**
 https://<production-vercel-domain>/**
 ```
 
-The live site remains a controlled pilot. A manually approved contractor can access only a project whose homeowner invitation they accept. Round 5 does not begin merely because the Round 4 interface exists; the ten-project evidence gate must be met with real Humboldt projects.
+The live landing page is the homeowner planner. The preserved roofing pilot
+remains archived and its former ten-project launch gate is not treated as
+completed by planner estimates or planner calibration uploads.

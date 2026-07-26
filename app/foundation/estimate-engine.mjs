@@ -53,6 +53,64 @@ function price(map, code, scenario) {
   return number(row[key]);
 }
 
+function fieldConfirmed(project, field) {
+  if (!project.homeowner_facts) return true;
+  const confirmed = project.homeowner_facts.confirmed_fields ?? {};
+  const deferred = new Set(project.homeowner_facts.deferred_fields ?? []);
+  return Boolean(confirmed[field]) && !deferred.has(field);
+}
+
+function resolvedConditions(project, scenarioName, roofAreaSqft) {
+  const pitch = fieldConfirmed(project, "roof_pitch")
+    ? project.roof_pitch
+    : scenarioName === "low"
+      ? "low"
+      : scenarioName === "high"
+        ? "steep"
+        : "moderate";
+  const existingLayers = fieldConfirmed(project, "existing_layers")
+    ? number(project.existing_layers, 1)
+    : scenarioName === "high"
+      ? Math.max(2, number(project.existing_layers, 1))
+      : 1;
+  const accessLevel = fieldConfirmed(project, "access_level")
+    ? project.access_level
+    : scenarioName === "low"
+      ? "easy"
+      : scenarioName === "high"
+        ? "difficult"
+        : "standard";
+  const complexity = fieldConfirmed(project, "complexity")
+    ? project.complexity
+    : scenarioName === "low"
+      ? "simple"
+      : scenarioName === "high"
+        ? "complex"
+        : "standard";
+  const contractorDeckingQuantity =
+    project.homeowner_facts?.decking_allowance_method ===
+    "contractor_quantity";
+  const deckingSheets = contractorDeckingQuantity
+    ? number(project.decking_allowance_sheets)
+    : scenarioName === "low"
+      ? 0
+      : scenarioName === "high"
+        ? Math.max(
+            8,
+            Math.ceil((roofAreaSqft * 0.2) / 32),
+          )
+        : Math.max(4, number(project.decking_allowance_sheets, 4));
+
+  return {
+    pitch,
+    existingLayers,
+    accessLevel,
+    complexity,
+    deckingSheets,
+    contractorDeckingQuantity,
+  };
+}
+
 function projectMissingInformation(project) {
   const missing = [];
   const confirmed = project.homeowner_facts?.confirmed_fields ?? {};
@@ -82,7 +140,9 @@ function projectMissingInformation(project) {
     missing.push("Contractor confirmation of roof shape and complexity");
   }
   if (project.homeowner_facts?.decking_allowance_method !== "contractor_quantity") {
-    missing.push("Actual damaged decking quantity after tear-off");
+    missing.push(
+      "Damaged decking is concealed; HUM carries a range instead of requiring a homeowner guess",
+    );
   }
   if (project.chimney_count === 0 && project.skylight_count === 0) {
     missing.push("Confirmation of roof penetrations and flashing details");
@@ -95,9 +155,17 @@ function projectMissingInformation(project) {
 
 function scenario(project, map, scenarioName) {
   const footprint = number(project.footprint_sqft);
-  const pitchFactor = PITCH_AREA_FACTORS[project.roof_pitch] ?? 1.12;
+  const initialPitch = fieldConfirmed(project, "roof_pitch")
+    ? project.roof_pitch
+    : scenarioName === "low"
+      ? "low"
+      : scenarioName === "high"
+        ? "steep"
+        : "moderate";
+  const pitchFactor = PITCH_AREA_FACTORS[initialPitch] ?? 1.12;
   const wasteFactor = price(map, "waste_factor", scenarioName);
   const roofAreaSqft = footprint * pitchFactor;
+  const conditions = resolvedConditions(project, scenarioName, roofAreaSqft);
   const roofingSquares = (roofAreaSqft * (1 + wasteFactor)) / 100;
 
   const materialPerSquare =
@@ -107,24 +175,24 @@ function scenario(project, map, scenarioName) {
     price(map, "fasteners_misc", scenarioName);
 
   const pitchAdjustment =
-    project.roof_pitch === "steep"
+    conditions.pitch === "steep"
       ? price(map, "pitch_adjustment", scenarioName)
-      : project.roof_pitch === "moderate"
+      : conditions.pitch === "moderate"
         ? price(map, "pitch_adjustment", scenarioName) * 0.35
         : 0;
   const storyAdjustment =
     Math.max(0, number(project.stories, 1) - 1) *
     price(map, "story_adjustment", scenarioName);
   const accessAdjustment =
-    project.access_level === "difficult"
+    conditions.accessLevel === "difficult"
       ? price(map, "access_adjustment", scenarioName)
-      : project.access_level === "easy"
+      : conditions.accessLevel === "easy"
         ? -0.025
         : 0;
   const complexityAdjustment =
-    project.complexity === "complex"
+    conditions.complexity === "complex"
       ? price(map, "complexity_adjustment", scenarioName)
-      : project.complexity === "simple"
+      : conditions.complexity === "simple"
         ? -0.03
         : 0;
   const laborMultiplier = Math.max(
@@ -145,15 +213,15 @@ function scenario(project, map, scenarioName) {
     laborHours * price(map, "labor_hour_rate", scenarioName);
   const tearOffCost =
     roofingSquares *
-    number(project.existing_layers, 1) *
+    conditions.existingLayers *
     price(map, "tearoff_per_layer", scenarioName) *
     laborMultiplier;
   const disposalCost =
     roofingSquares *
-    number(project.existing_layers, 1) *
+    conditions.existingLayers *
     price(map, "disposal_per_layer", scenarioName);
   const deckingAllowance =
-    number(project.decking_allowance_sheets) *
+    conditions.deckingSheets *
     price(map, "decking_sheet", scenarioName);
   const penetrationCount =
     number(project.chimney_count) + number(project.skylight_count);
@@ -205,6 +273,13 @@ function scenario(project, map, scenarioName) {
     costBasis: round(costBasis),
     targetMargin: round(targetMargin, 4),
     planningPrice: round(planningPrice),
+    assumptions: {
+      roofPitch: conditions.pitch,
+      existingLayers: conditions.existingLayers,
+      accessLevel: conditions.accessLevel,
+      complexity: conditions.complexity,
+      deckingSheets: conditions.deckingSheets,
+    },
   };
 }
 
@@ -215,6 +290,11 @@ export function calculateEstimate(project, pricingVersion, pricingItems) {
   if (!number(project.footprint_sqft)) {
     throw new Error("A roof footprint is required before estimating.");
   }
+  if (["metal", "tile"].includes(project.roof_material)) {
+    throw new Error(
+      "The current source-backed catalog supports asphalt roofing. Metal and tile pricing remain locked until their own regional data versions are approved.",
+    );
+  }
 
   const map = itemMap(pricingItems);
   const low = scenario(project, map, "low");
@@ -224,6 +304,10 @@ export function calculateEstimate(project, pricingVersion, pricingItems) {
 
   let confidenceScore = 92;
   confidenceScore -= missingInformation.length * 6;
+  const lowConfidenceInputs = pricingItems.filter(
+    (item) => item.confidence === "low",
+  ).length;
+  confidenceScore -= Math.min(12, Math.round(lowConfidenceInputs / 2));
   if (project.ai_source === "deterministic_fallback") confidenceScore -= 5;
   if (project.complexity === "complex") confidenceScore -= 4;
   if (project.active_leak) confidenceScore -= 3;
@@ -231,9 +315,9 @@ export function calculateEstimate(project, pricingVersion, pricingItems) {
 
   const majorCostDrivers = [
     `${expected.roofingSquares} estimated roofing squares after pitch and waste`,
-    `${project.existing_layers} existing roof layer${project.existing_layers === 1 ? "" : "s"} carried for removal`,
+    `${expected.assumptions.existingLayers} expected roof layer${expected.assumptions.existingLayers === 1 ? "" : "s"} carried for removal`,
     `${expected.laborHours} expected labor hours after access, pitch, story, and complexity adjustments`,
-    `${project.decking_allowance_sheets} decking sheets carried as a temporary allowance, not a hidden-damage finding`,
+    `${expected.assumptions.deckingSheets} decking sheets carried in the expected scenario, with ${low.assumptions.deckingSheets} in low and ${high.assumptions.deckingSheets} in high because the deck is concealed`,
     `${Math.round(expected.targetMargin * 100)}% target gross-margin scenario from the approved pricing version`,
   ];
 
@@ -243,11 +327,60 @@ export function calculateEstimate(project, pricingVersion, pricingItems) {
     );
   }
 
+  const confidenceCounts = pricingItems.reduce(
+    (counts, item) => {
+      counts[item.confidence] += 1;
+      return counts;
+    },
+    { low: 0, medium: 0, high: 0 },
+  );
+  const verifiedDates = pricingItems
+    .map((item) => item.verified_at)
+    .filter(Boolean)
+    .sort();
+  const assumptionNotes = [];
+  for (const [field, label] of [
+    ["roof_pitch", "Roof slope"],
+    ["existing_layers", "Existing layers"],
+    ["access_level", "Property access"],
+    ["complexity", "Roof shape"],
+  ]) {
+    if (!fieldConfirmed(project, field)) {
+      assumptionNotes.push(
+        `${label} is not confirmed, so low, expected, and high scenarios use different safe planning conditions.`,
+      );
+    }
+  }
+  if (
+    project.homeowner_facts?.decking_allowance_method !==
+    "contractor_quantity"
+  ) {
+    assumptionNotes.push(
+      "Decking is not required from the homeowner: HUM carries zero sheets in low, a small reserve in expected, and a 20% planning allowance in high.",
+    );
+  }
+
   return {
     projectSummary: `${project.title}: ${project.project_type} planning estimate for a ${project.stories}-story ${project.roof_material.replaceAll("_", " ")} roof in ${project.city}, ${project.county} County.`,
     pricingVersionCode: pricingVersion.version_code,
     pricingEffectiveDate: pricingVersion.effective_date,
     confidenceScore,
+    dataStrength: {
+      label:
+        confidenceCounts.low > confidenceCounts.medium + confidenceCounts.high
+          ? "Early local baseline"
+          : "Developing local baseline",
+      totalInputs: pricingItems.length,
+      sourcedInputs: pricingItems.filter((item) => item.source_url).length,
+      highConfidenceInputs: confidenceCounts.high,
+      mediumConfidenceInputs: confidenceCounts.medium,
+      lowConfidenceInputs: confidenceCounts.low,
+      newestVerificationDate:
+        verifiedDates.at(-1) ?? pricingVersion.effective_date,
+      limitation:
+        "Retail materials, official disposal, permit requirements, and public scopes are sourced. Humboldt contractor productivity, burden, overhead, and margin remain controlled assumptions until the pilot calibrates them.",
+    },
+    assumptions: assumptionNotes,
     missingInformation,
     majorCostDrivers,
     questionsForContractor: [
@@ -268,7 +401,9 @@ export function calculateEstimate(project, pricingVersion, pricingItems) {
       {
         label: "Pitch factor",
         source: "calculator",
-        value: `${project.roof_pitch} (${PITCH_AREA_FACTORS[project.roof_pitch] ?? 1.12}×)`,
+        value: fieldConfirmed(project, "roof_pitch")
+          ? `${project.roof_pitch} (${PITCH_AREA_FACTORS[project.roof_pitch] ?? 1.12}×)`
+          : `Unconfirmed: ${low.assumptions.roofPitch}, ${expected.assumptions.roofPitch}, and ${high.assumptions.roofPitch} scenarios`,
       },
       {
         label: "Waste factor",
@@ -287,7 +422,13 @@ export function calculateEstimate(project, pricingVersion, pricingItems) {
           project.homeowner_facts?.decking_allowance_method ===
           "contractor_quantity"
             ? `${project.decking_allowance_sheets} contractor-reported sheets`
-            : `${project.decking_allowance_sheets} temporary allowance sheets`,
+            : `${low.assumptions.deckingSheets} low / ${expected.assumptions.deckingSheets} expected / ${high.assumptions.deckingSheets} high; no homeowner guess required`,
+      },
+      {
+        label: "Quote requirement",
+        source: "calculator",
+        value:
+          "No contractor quote or contractor pricing is required to generate this planning range.",
       },
       {
         label: "Calculation rule",
